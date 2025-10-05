@@ -135,7 +135,7 @@ export default function Sidebar() {
 
       {/* Sidebar container */}
       <aside
-        className={`fixed left-4 top-4 z-50 flex h-[calc(100dvh-32px)] flex-col rounded-3xl border border-gray-200 bg-white shadow-2xl transition-transform duration-200 md:translate-x-0 ${
+        className={`fixed left-0 top-0 z-50 flex h-screen flex-col rounded-3xl border border-gray-200 bg-white shadow-2xl transition-transform duration-200 md:translate-x-0 ${
           mobileOpen ? "translate-x-0" : "-translate-x-full"
         } md:transform-none`}
       >
@@ -146,21 +146,21 @@ export default function Sidebar() {
           }}
         >
           {/* Logo */}
-          <div className="flex items-center gap-3 px-4 pt-4 pb-3">
+          <div className="flex items-center justify-center gap-3 px-4 pt-5 pb-4">
             <Image
               src="/logo.png"
               alt="Nexora HCM"
-              width={36}
-              height={36}
-              className="rounded-md"
+              width={48}
+              height={48}
+              className="rounded-lg"
               priority
             />
             {expanded && (
               <div className="flex flex-col">
-                <span className="text-sm font-semibold tracking-wide text-gray-900">
+                <span className="text-base font-semibold tracking-wide text-gray-900">
                   NEXORA
                 </span>
-                <span className="text-[11px] text-gray-500 -mt-1">HCM</span>
+                <span className="text-xs text-gray-500 -mt-0.5">HCM</span>
               </div>
             )}
           </div>
