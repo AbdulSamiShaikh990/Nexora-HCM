@@ -22,8 +22,8 @@ export default function AdminHeader() {
   const breadcrumb = crumbs.slice(1).join(" / ") || "Dashboard"; // ignore leading "Admin"
 
   return (
-    <header className="sticky top-0 z-10 -mx-2 mb-4 px-2 pt-2 md:static md:mx-0 md:px-0 md:pt-0">
-      <div className="rounded-b-xl bg-gradient-to-r from-indigo-600 to-violet-600 p-3 text-white shadow md:rounded-xl">
+    <header className="sticky top-0 z-10 mb-4">
+      <div className="bg-gradient-to-r from-indigo-600 to-violet-600 px-4 py-3 text-white shadow-md md:px-6 md:py-4">
         <div className="flex items-center gap-3">
           {/* Left: logo chip (hidden on very small screens to save space) */}
           <div className="hidden xs:flex items-center gap-2 rounded-full bg-white/15 px-2 py-1">
