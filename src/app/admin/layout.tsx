@@ -10,16 +10,18 @@ export default function AdminLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <div className="flex">
+    <div className="flex min-h-screen bg-gray-50">
       {/* Fixed, responsive sidebar with internal spacer */}
       <Sidebar />
 
       {/* Content area */}
-      <div className="min-h-dvh flex-1 bg-gray-50 p-2 md:p-6">
-        <div className="mx-auto max-w-7xl">
-          <AdminHeader />
-          <div className="rounded-xl bg-white p-4 shadow-sm">
-            {children}
+      <div className="min-h-dvh flex-1">
+        <AdminHeader />
+        <div className="p-4 md:p-6">
+          <div className="mx-auto max-w-7xl">
+            <div className="rounded-xl bg-white p-4 md:p-6 shadow-sm">
+              {children}
+            </div>
           </div>
         </div>
       </div>
