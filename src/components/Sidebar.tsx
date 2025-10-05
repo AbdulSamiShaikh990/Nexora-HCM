@@ -106,6 +106,9 @@ export default function Sidebar() {
   // Widths
   const expandedWidth = 256; // w-64
   const collapsedWidth = 80; // w-20
+  // How much the card should protrude into the content area (OrangeHRM feel)
+  const overlapExpanded = 20; // px
+  const overlapCollapsed = 10; // px
 
   return (
     <>
@@ -132,7 +135,7 @@ export default function Sidebar() {
 
       {/* Sidebar container */}
       <aside
-        className={`fixed left-0 top-0 z-50 flex h-dvh flex-col bg-white shadow-xl transition-transform duration-200 md:shadow-none md:border-r md:bg-white md:translate-x-0 ${
+        className={`fixed left-4 top-4 z-50 flex h-[calc(100dvh-32px)] flex-col rounded-3xl border border-gray-200 bg-white shadow-2xl transition-transform duration-200 md:translate-x-0 ${
           mobileOpen ? "translate-x-0" : "-translate-x-full"
         } md:transform-none`}
       >
@@ -213,28 +216,20 @@ export default function Sidebar() {
             {expanded && (
               <span className="text-[11px] text-gray-400">v1.0</span>
             )}
-            <button
-              type="button"
-              onClick={() => setExpanded((s) => !s)}
-              className="rounded-full border p-2 text-gray-500 hover:bg-gray-50 hidden md:inline-flex"
-              aria-label="Toggle width"
-              title="Collapse"
-            >
-              <svg
-                viewBox="0 0 24 24"
-                className="h-4 w-4"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.8"
-              >
-                {expanded ? (
-                  <path d="M15 6 9 12l6 6" />
-                ) : (
-                  <path d="M9 6l6 6-6 6" />
-                )}
-              </svg>
-            </button>
           </div>
+
+          {/* Edge floating knob like OrangeHRM (md+ toggler) */}
+          <button
+            type="button"
+            onClick={() => setExpanded((s) => !s)}
+            className="absolute right-[-14px] top-32 hidden h-7 w-7 items-center justify-center rounded-full bg-violet-600 text-white shadow md:inline-flex"
+            aria-label="Toggle sidebar"
+            title="Toggle sidebar"
+          >
+            <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2">
+              {expanded ? <path d="M15 6 9 12l6 6" /> : <path d="M9 6l6 6-6 6" />}
+            </svg>
+          </button>
 
           {/* Edge floating knob like screenshot (mobile toggle) */}
           <button
@@ -253,7 +248,11 @@ export default function Sidebar() {
       {/* Reserve space for fixed sidebar on md+ */}
       <div
         className="hidden md:block"
-        style={{ width: expanded ? expandedWidth : collapsedWidth }}
+        style={{
+          width: expanded
+            ? expandedWidth - overlapExpanded
+            : collapsedWidth - overlapCollapsed,
+        }}
         aria-hidden
       />
     </>
