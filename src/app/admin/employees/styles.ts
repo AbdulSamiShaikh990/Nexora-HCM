@@ -18,13 +18,13 @@ export const S = {
   applyBtn: "px-5 py-2.5 rounded-xl text-white font-semibold bg-gradient-to-r from-indigo-600 to-violet-600 hover:brightness-110 shadow-md transition-all",
 
   // Modal
-  modalPanel: "relative w-full sm:max-w-2xl max-h-[90vh] overflow-y-auto rounded-2xl border border-white/30 bg-white/95 backdrop-blur-xl shadow-[0_8px_30px_rgba(31,38,135,0.18)] p-6",
-  modalPanelWide: "relative w-full sm:max-w-4xl max-h-[90vh] overflow-y-auto rounded-2xl border border-white/30 bg-white/95 backdrop-blur-xl shadow-[0_8px_30px_rgba(31,38,135,0.18)] p-6",
-  modalTitle: "text-xl font-bold text-gray-900",
-  modalClose: "h-10 w-10 inline-flex items-center justify-center rounded-xl border border-gray-300 hover:bg-gray-100 text-gray-600 font-bold text-lg",
+  modalPanel: "relative w-full max-w-[95vw] sm:max-w-2xl max-h-[95vh] sm:max-h-[90vh] overflow-y-auto rounded-t-2xl sm:rounded-2xl border border-white/30 bg-white/95 backdrop-blur-xl shadow-[0_8px_30px_rgba(31,38,135,0.18)] p-4 sm:p-6",
+  modalPanelWide: "relative w-full max-w-[95vw] sm:max-w-4xl max-h-[95vh] sm:max-h-[90vh] overflow-y-auto rounded-t-2xl sm:rounded-2xl border border-white/30 bg-white/95 backdrop-blur-xl shadow-[0_8px_30px_rgba(31,38,135,0.18)] p-4 sm:p-6",
+  modalTitle: "text-lg sm:text-xl font-bold text-gray-900 truncate pr-2",
+  modalClose: "h-9 w-9 sm:h-10 sm:w-10 inline-flex items-center justify-center rounded-xl border border-gray-300 hover:bg-gray-100 text-gray-600 font-bold text-base sm:text-lg flex-shrink-0 transition-all",
 
   // Icon button
-  iconButton: "h-9 w-9 inline-flex items-center justify-center rounded-lg border text-base border-white/40 bg-white/70 hover:bg-white/90",
+  iconButton: "h-8 w-8 sm:h-9 sm:w-9 inline-flex items-center justify-center rounded-lg border text-sm sm:text-base border-white/40 bg-white/70 hover:bg-white/90 transition-all",
 
   // Chips
   chipsContainer: "rounded-xl border-2 border-gray-300 bg-white p-3 flex flex-wrap gap-2 min-h-[48px]",

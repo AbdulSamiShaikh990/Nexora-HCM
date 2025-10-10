@@ -312,12 +312,12 @@ export default function Page() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      <div className="flex flex-col space-y-4 sm:space-y-0 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl sm:text-3xl font-semibold text-gray-900 tracking-tight">Employee Management</h1>
           <p className="mt-1 text-sm text-gray-600">Manage your organization’s workforce.</p>
         </div>
-        <button onClick={openAdd} className="inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium text-white bg-gradient-to-r from-indigo-600 to-violet-600 shadow hover:brightness-110">
+        <button onClick={openAdd} className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium text-white bg-gradient-to-r from-indigo-600 to-violet-600 shadow hover:brightness-110 transition-all">
           <span className="text-base">＋</span> Add Employee
         </button>
       </div>
@@ -339,14 +339,14 @@ export default function Page() {
               </div>
             )}
           </div>
-          <div className="flex gap-3">
-            <select value={dept} onChange={e=>{setDept(e.target.value); setPage(1);}} className="rounded-xl border border-white/40 bg-white/80 backdrop-blur px-3 py-2.5 text-sm text-gray-900">
+          <div className="flex flex-col sm:flex-row gap-3">
+            <select value={dept} onChange={e=>{setDept(e.target.value); setPage(1);}} className="w-full sm:w-auto rounded-xl border border-white/40 bg-white/80 backdrop-blur px-3 py-2.5 text-sm text-gray-900 min-w-0">
               {departments.map(d=> <option key={d} value={d}>{d}</option>)}
             </select>
-            <select value={stat} onChange={e=>{setStat(e.target.value as any); setPage(1);}} className="rounded-xl border border-white/40 bg-white/80 backdrop-blur px-3 py-2.5 text-sm text-gray-900">
+            <select value={stat} onChange={e=>{setStat(e.target.value as any); setPage(1);}} className="w-full sm:w-auto rounded-xl border border-white/40 bg-white/80 backdrop-blur px-3 py-2.5 text-sm text-gray-900 min-w-0">
               {(["All","Active","On Leave","Inactive"] as const).map((s)=> <option key={s} value={s}>{s}</option>)}
             </select>
-            <button onClick={()=>setAdvOpen(v=>!v)} className={S.advButton}>{advOpen?"Hide Filters":"⚙ Advanced"}</button>
+            <button onClick={()=>setAdvOpen(v=>!v)} className={`${S.advButton} w-full sm:w-auto whitespace-nowrap`}>{advOpen?"Hide Filters":"⚙ Advanced"}</button>
           </div>
         </div>
         {advOpen && (
@@ -394,7 +394,8 @@ export default function Page() {
             <button onClick={syncFromSheetPrompt} className="px-3 py-1.5 rounded-lg border border-cyan-300 bg-cyan-50 text-cyan-700 text-xs font-semibold hover:bg-cyan-100 transition-all">Sync Sheets</button>
           </div>
         </div>
-        <div className="overflow-x-auto">
+        {/* Desktop Table View */}
+        <div className="hidden lg:block overflow-x-auto">
           <table className="min-w-full text-sm">
             <thead>
               <tr className="text-left text-gray-700 uppercase tracking-wide">
@@ -434,16 +435,60 @@ export default function Page() {
                 </tr>
               ))}
               {items.length===0 && (
-                <tr><td colSpan={6} className="px-6 py-16 text-center text-gray-500">No employees found.</td></tr>
+                <tr><td colSpan={7} className="px-6 py-16 text-center text-gray-500">No employees found.</td></tr>
               )}
             </tbody>
           </table>
         </div>
-        <div className="flex items-center justify-between px-4 py-3 border-t border-white/20">
-          <div className="text-xs text-gray-500">Page {page} of {total}</div>
-          <div className="flex gap-2">
-            <button className="px-3 py-1.5 rounded-lg border border-white/40 bg-white/80 hover:bg-white/90 disabled:opacity-40" disabled={page===1} onClick={()=>setPage(p=>Math.max(1,p-1))}>Prev</button>
-            <button className="px-3 py-1.5 rounded-lg border border-white/40 bg-white/80 hover:bg-white/90 disabled:opacity-40" disabled={page===total} onClick={()=>setPage(p=>Math.min(total,p+1))}>Next</button>
+
+        {/* Mobile/Tablet Card View */}
+        <div className="lg:hidden space-y-4 p-4">
+          {items.map(e=> (
+            <div key={e.id} className="bg-white/60 backdrop-blur-sm border border-white/40 rounded-xl p-4 hover:bg-white/80 transition-all">
+              <div className="flex items-start justify-between mb-3">
+                <div className="flex items-center gap-3 flex-1 min-w-0">
+                  <input type="checkbox" checked={selected.has(e.id)} onChange={(ev)=>toggleSelect(e.id, ev.target.checked)} className="flex-shrink-0" />
+                  <div className="h-10 w-10 rounded-full bg-gradient-to-br from-indigo-200 to-violet-200 flex items-center justify-center text-sm font-semibold text-indigo-700 flex-shrink-0">{e.firstName[0]}{e.lastName[0]}</div>
+                  <div className="min-w-0 flex-1">
+                    <div className="font-semibold text-gray-900 truncate">{e.firstName} {e.lastName}</div>
+                    <div className="text-sm text-gray-600 truncate">{e.email}</div>
+                  </div>
+                </div>
+                <div className="flex items-center gap-1 flex-shrink-0 ml-2">
+                  <IconButton title="View" onClick={()=>setView(e)}>👁️</IconButton>
+                  <IconButton title="Edit" onClick={()=>openEdit(e)}>✏️</IconButton>
+                  <IconButton title="Delete" danger onClick={()=>setConfirm(e)}>🗑️</IconButton>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3 text-sm">
+                <div>
+                  <div className="text-xs text-gray-500 uppercase tracking-wide">Job Title</div>
+                  <div className="font-medium text-gray-900 truncate">{e.jobTitle}</div>
+                </div>
+                <div>
+                  <div className="text-xs text-gray-500 uppercase tracking-wide">Department</div>
+                  <div className="font-medium text-gray-900 truncate">{e.department}</div>
+                </div>
+                <div>
+                  <div className="text-xs text-gray-500 uppercase tracking-wide">Status</div>
+                  <div><Badge status={e.status} /></div>
+                </div>
+                <div>
+                  <div className="text-xs text-gray-500 uppercase tracking-wide">Join Date</div>
+                  <div className="font-medium text-gray-900">{new Date(e.joinDate).toLocaleDateString()}</div>
+                </div>
+              </div>
+            </div>
+          ))}
+          {items.length===0 && (
+            <div className="px-6 py-16 text-center text-gray-500">No employees found.</div>
+          )}
+        </div>
+        <div className="flex flex-col sm:flex-row items-center justify-between px-4 py-3 border-t border-white/20 gap-3">
+          <div className="text-xs text-gray-500 order-2 sm:order-1">Page {page} of {total}</div>
+          <div className="flex gap-2 order-1 sm:order-2">
+            <button className="px-4 py-2 rounded-lg border border-white/40 bg-white/80 hover:bg-white/90 disabled:opacity-40 text-sm font-medium transition-all" disabled={page===1} onClick={()=>setPage(p=>Math.max(1,p-1))}>Previous</button>
+            <button className="px-4 py-2 rounded-lg border border-white/40 bg-white/80 hover:bg-white/90 disabled:opacity-40 text-sm font-medium transition-all" disabled={page===total} onClick={()=>setPage(p=>Math.min(total,p+1))}>Next</button>
           </div>
         </div>
       </Glass>
