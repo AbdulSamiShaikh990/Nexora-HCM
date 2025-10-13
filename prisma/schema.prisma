@@ -8,43 +8,92 @@ datasource db {
 }
 
 model Employee {
-  id          Int      @id @default(autoincrement())
-  name        String
-  email       String   @unique
-  department  String
-  designation String
-  joinDate    DateTime @default(now())
-  attendance  Attendance[]
-  leaves      Leave[]
-  payrolls    Payroll[]
+  id                Int          @id @default(autoincrement())
+  email             String       @unique
+  department        String
+  joinDate          DateTime     @default(now())
+  certifications    String[]     @default([])
+  createdAt         DateTime     @default(now())
+  feedback          String?
+  firstName         String
+  jobTitle          String
+  lastName          String
+  leaveBalance      Int?         @default(10)
+  location          String?
+  performanceRating Float?
+  phone             String?
+  projects          String[]     @default([])
+  salary            Float?
+  skills            String[]     @default([])
+  status            String       @default("Active")
+  updatedAt         DateTime
+  attendance        Attendance[]
+  AuditLog          AuditLog[]
+  Document          Document[]
+  leaves            Leave[]
+  payrolls          Payroll[]
 }
 
 model Attendance {
-  id          Int      @id @default(autoincrement())
-  date        DateTime
-  status      String
-  employeeId  Int
-  employee    Employee @relation(fields: [employeeId], references: [id])
+  id         Int      @id @default(autoincrement())
+  date       DateTime
+  status     String
+  employeeId Int
+  employee   Employee @relation(fields: [employeeId], references: [id])
 }
 
 model Leave {
-  id          Int      @id @default(autoincrement())
-  type        String
-  startDate   DateTime
-  endDate     DateTime
-  reason      String?
-  status      String   @default("Pending")
-  employeeId  Int
-  employee    Employee @relation(fields: [employeeId], references: [id])
+  id         Int      @id @default(autoincrement())
+  type       String
+  startDate  DateTime
+  endDate    DateTime
+  reason     String?
+  status     String   @default("Pending")
+  employeeId Int
+  employee   Employee @relation(fields: [employeeId], references: [id])
 }
 
 model Payroll {
-  id          Int      @id @default(autoincrement())
-  month       String
-  baseSalary  Float
-  bonuses     Float?
-  deductions  Float?
-  netSalary   Float
-  employeeId  Int
-  employee    Employee @relation(fields: [employeeId], references: [id])
+  id         Int      @id @default(autoincrement())
+  month      String
+  baseSalary Float
+  bonuses    Float?
+  deductions Float?
+  netSalary  Float
+  employeeId Int
+  employee   Employee @relation(fields: [employeeId], references: [id])
+}
+
+model AuditLog {
+  id         Int      @id @default(autoincrement())
+  action     String
+  by         String
+  createdAt  DateTime @default(now())
+  employeeId Int
+  Employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+}
+
+model Document {
+  id         Int      @id @default(autoincrement())
+  name       String
+  type       String
+  size       Int
+  base64     String?
+  uploadedAt DateTime @default(now())
+  employeeId Int
+  Employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+}
+
+// Auth Models (simplified)
+enum Role {
+  ADMIN
+  EMPLOYEE
+}
+
+model User {
+  id       String  @id @default(cuid())
+  name     String?
+  email    String? @unique
+  password String?
+  role     Role    @default(EMPLOYEE)
 }
