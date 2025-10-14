@@ -28,36 +28,68 @@ type Employee = {
   documents?: Array<{ id: string; name: string; type: string; size: number; base64?: string; uploadedAt: string }>;
 };
 
-const STORAGE = "nexora_employees";
+const STORAGE = "nexora_employees"; // no longer used for source of truth; kept to avoid wider refactor
 const id = () => Math.random().toString(36).slice(2) + Date.now().toString(36);
 
-const SEED: Employee[] = [
-  { id: id(), firstName: "Sarah", lastName: "Johnson", email: "sarah.johnson@company.com", jobTitle: "Senior Software Engineer", department: "Engineering", status: "Active", joinDate: "2022-03-15", phone: "+1 (555) 123-4567", location: "NY, USA", performanceRating: 4.6, skills: ["React","Node","AWS"] },
-  { id: id(), firstName: "Michael", lastName: "Chen", email: "michael.chen@company.com", jobTitle: "Product Manager", department: "Product", status: "Active", joinDate: "2021-08-22", phone: "+1 (555) 234-5678", location: "SF, USA", performanceRating: 4.2, skills: ["Roadmapping","Analytics"] },
-  { id: id(), firstName: "Emily", lastName: "Rodriguez", email: "emily.rodriguez@company.com", jobTitle: "Marketing Director", department: "Marketing", status: "Active", joinDate: "2020-11-10", phone: "+1 (555) 345-6789", location: "Remote", performanceRating: 4.8, skills: ["Brand","Content"] },
-  { id: id(), firstName: "David", lastName: "Kim", email: "david.kim@company.com", jobTitle: "UX Designer", department: "Design", status: "On Leave", joinDate: "2023-01-05", phone: "+1 (555) 456-7890", location: "LA, USA", performanceRating: 4.0, skills: ["Figma","Prototyping"] },
-  { id: id(), firstName: "Lisa", lastName: "Thompson", email: "lisa.thompson@company.com", jobTitle: "HR Business Partner", department: "Human Resources", status: "Active", joinDate: "2019-06-18", phone: "+1 (555) 567-8901", location: "Remote", performanceRating: 4.7, skills: ["People Ops","Compliance"] },
-];
+async function apiList(): Promise<Employee[]> {
+  const res = await fetch("/api/employees", { cache: "no-store" });
+  if (!res.ok) throw new Error("Failed to load employees");
+  const arr = await res.json();
+  return (arr as any[]).map((e) => ({
+    id: String(e.id),
+    firstName: e.firstName,
+    lastName: e.lastName,
+    email: e.email,
+    jobTitle: e.jobTitle,
+    department: e.department,
+    status: (e.status as Status) ?? "Active",
+    joinDate: new Date(e.joinDate).toISOString().slice(0, 10),
+    phone: e.phone ?? "",
+    location: e.location ?? "",
+    performanceRating: e.performanceRating ?? undefined,
+    skills: e.skills ?? [],
+    certifications: e.certifications ?? [],
+    leaveBalance: e.leaveBalance ?? undefined,
+    salary: e.salary ?? undefined,
+    projects: e.projects ?? [],
+    feedback: e.feedback ?? "",
+    auditLog: (e.AuditLog ?? []).map((a: any) => ({ id: String(a.id), at: a.createdAt, by: a.by, action: a.action })),
+    documents: (e.Document ?? []).map((d: any) => ({ id: String(d.id), name: d.name, type: d.type, size: d.size, uploadedAt: d.uploadedAt })),
+  }));
+}
 
-const load = (): Employee[] => {
-  if (typeof window === "undefined") return [];
-  const raw = localStorage.getItem(STORAGE);
-  if (!raw) {
-    localStorage.setItem(STORAGE, JSON.stringify(SEED));
-    return SEED;
+async function apiCreate(payload: Omit<Employee, "id"> & { password: string }) {
+  const res = await fetch("/api/employees", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) {
+    let msg = "Failed to create employee";
+    try { const j = await res.json(); msg = j?.error || msg; } catch {}
+    throw new Error(msg);
   }
-  try {
-    const parsed = JSON.parse(raw) as Employee[];
-    return Array.isArray(parsed) ? parsed : SEED;
-  } catch {
-    return SEED;
+  return res.json();
+}
+
+async function apiUpdate(idNum: number, payload: Partial<Employee>) {
+  const res = await fetch(`/api/employees/${idNum}` ,{
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) {
+    let msg = "Failed to update employee";
+    try { const j = await res.json(); msg = j?.error || msg; } catch {}
+    throw new Error(msg);
   }
-};
-const save = (data: Employee[]) => {
-  if (typeof window !== "undefined") {
-    localStorage.setItem(STORAGE, JSON.stringify(data));
-  }
-};
+  return res.json();
+}
+
+async function apiDelete(idNum: number) {
+  const res = await fetch(`/api/employees/${idNum}`, { method: "DELETE" });
+  if (!res.ok) throw new Error("Failed to delete employee");
+}
 
 const Glass = ({ children, className = "" }: { children: any; className?: string }) => (
   <div className={`${S.glassCard} ${className}`}>{children}</div>
@@ -72,7 +104,7 @@ const Badge = ({ status }: { status: Status }) => {
   return <span className={`px-2.5 py-1 text-xs font-medium rounded-full ${m[status]}`}>{status}</span>;
 };
 
-type FormState = Omit<Employee, "id">;
+type FormState = Omit<Employee, "id"> & { password?: string };
 const emptyForm: FormState = {
   firstName: "",
   lastName: "",
@@ -92,6 +124,7 @@ const emptyForm: FormState = {
   feedback: "",
   auditLog: [],
   documents: [],
+  password: "",
 };
 
 export default function Page() {
@@ -115,15 +148,20 @@ export default function Page() {
   const [advOpen, setAdvOpen] = useState(false);
   const [skillFilter, setSkillFilter] = useState("");
   const [minRating, setMinRating] = useState<number>(0);
-  const [suggestions, setSuggestions] = useState<string[]>([]);
   const [dateFrom, setDateFrom] = useState<string>("");
   const [dateTo, setDateTo] = useState<string>("");
   // Bulk select
   const [selected, setSelected] = useState<Set<string>>(new Set());
 
-
-  useEffect(() => setRows(load()), []);
-  useEffect(() => save(rows), [rows]);
+  async function refresh() {
+    try {
+      const list = await apiList();
+      setRows(list);
+    } catch (e) {
+      console.error(e);
+    }
+  }
+  useEffect(() => { void refresh(); }, []);
 
   const departments = useMemo(() => ["All", ...Array.from(new Set(rows.map(r => r.department).filter(Boolean)))], [rows]);
 
@@ -155,35 +193,48 @@ export default function Page() {
 
   const openAdd = () => { setEditId(null); setForm(emptyForm); setErr(null); setShowForm(true); };
   const openEdit = (e: Employee) => { const { id: _, ...rest } = e; setEditId(e.id); setForm({ ...emptyForm, ...rest }); setErr(null); setShowForm(true); };
-  const saveForm = () => {
+  const saveForm = async () => {
     if (!form.firstName || !form.lastName) return setErr("First & last name required");
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) return setErr("Valid email required");
     if (!form.jobTitle || !form.department) return setErr("Job title & department required");
     if (!form.joinDate) return setErr("Join date required");
-    if (editId) setRows(rs => rs.map(r => r.id === editId ? { ...r, ...form, auditLog: [...(r.auditLog ?? []), { id: id(), at: new Date().toISOString(), by: "Admin", action: "Updated" }] } : r));
-    else setRows(rs => [{ id: id(), ...form, auditLog: [{ id: id(), at: new Date().toISOString(), by: "Admin", action: "Created" }] }, ...rs]);
-    setShowForm(false);
+    if (!editId) {
+      const pwd = form.password?.trim() || "";
+      if (pwd.length < 6) return setErr("Password must be at least 6 characters");
+    }
+    try {
+      if (editId && /^\d+$/.test(editId)) {
+        const { password: _pw, ...rest } = form;
+        await apiUpdate(Number(editId), rest);
+      } else if (!editId) {
+        await apiCreate({ ...(form as Required<FormState>), password: String(form.password) });
+      } else {
+        return setErr("Cannot edit this record");
+      }
+      await refresh();
+      setShowForm(false);
+    } catch (e: any) {
+      setErr(e?.message || "Failed to save");
+    }
   };
 
-  const doDelete = () => { if (!confirm) return; setRows(rs => rs.filter(r => r.id !== confirm.id)); setConfirm(null); };
+  const doDelete = async () => {
+    if (!confirm) return;
+    try {
+      if (!/^\d+$/.test(confirm.id)) throw new Error("Cannot delete this record");
+      await apiDelete(Number(confirm.id));
+      await refresh();
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setConfirm(null);
+    }
+  };
 
   const sortBy = (k: keyof Employee) => {
     if (sortKey === k) setDir(d => d === "asc" ? "desc" : "asc"); else { setSortKey(k); setDir("asc"); }
   };
 
-  // Suggestions based on roles, departments, and skills
-  function handleSuggest(text: string) {
-    const t = text.trim().toLowerCase();
-    if (!t) { setSuggestions([]); return; }
-    const roles = Array.from(new Set(rows.map(r => r.jobTitle)));
-    const depts = Array.from(new Set(rows.map(r => r.department)));
-    const skills = Array.from(new Set(rows.flatMap(r => r.skills ?? [])));
-    const cand = [...roles, ...depts, ...skills]
-      .filter(Boolean)
-      .filter(x => x.toLowerCase().includes(t))
-      .slice(0, 8);
-    setSuggestions(cand);
-  }
 
   // Bulk selection helpers
   function toggleSelect(id: string, checked: boolean) {
@@ -235,31 +286,39 @@ export default function Page() {
   }
 
   // Bulk actions
-  const bulkStatus = (status: Status) => {
-    setRows(prev => prev.map(r => selected.has(r.id)
-      ? { ...r, status, auditLog: [...(r.auditLog ?? []), { id: id(), at: new Date().toISOString(), by: "Admin", action: `Bulk status: ${status}` }] }
-      : r
-    ));
+  const bulkStatus = async (status: Status) => {
+    const ids = Array.from(selected).filter(id => /^\d+$/.test(id)).map(n => Number(n));
+    try {
+      await Promise.all(ids.map(i => apiUpdate(i, { status })));
+      await refresh();
+    } catch (e) { console.error(e); }
     setSelected(new Set());
   };
 
-  const bulkChangeDept = () => {
+  const bulkChangeDept = async () => {
     const d = prompt("New department for selected?");
     if (!d) return;
-    setRows(prev => prev.map(r => selected.has(r.id)
-      ? { ...r, department: d, auditLog: [...(r.auditLog ?? []), { id: id(), at: new Date().toISOString(), by: "Admin", action: `Bulk department: ${d}` }] }
-      : r
-    ));
+    const ids = Array.from(selected).filter(id => /^\d+$/.test(id)).map(n => Number(n));
+    try {
+      await Promise.all(ids.map(i => apiUpdate(i, { department: d })));
+      await refresh();
+    } catch (e) { console.error(e); }
     setSelected(new Set());
   };
 
-  const bulkAssignProject = () => {
+  const bulkAssignProject = async () => {
     const p = prompt("Project to assign?");
     if (!p) return;
-    setRows(prev => prev.map(r => selected.has(r.id)
-      ? { ...r, projects: Array.from(new Set([...(r.projects ?? []), p])), auditLog: [...(r.auditLog ?? []), { id: id(), at: new Date().toISOString(), by: "Admin", action: `Bulk project: ${p}` }] }
-      : r
-    ));
+    const ids = Array.from(selected).filter(id => /^\d+$/.test(id)).map(n => Number(n));
+    const byId = new Map(rows.map(r => [Number(r.id), r]));
+    try {
+      await Promise.all(ids.map(i => {
+        const r = byId.get(i);
+        const next = Array.from(new Set([...(r?.projects ?? []), p]));
+        return apiUpdate(i, { projects: next });
+      }));
+      await refresh();
+    } catch (e) { console.error(e); }
     setSelected(new Set());
   };
 
@@ -310,34 +369,25 @@ export default function Page() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="min-h-screen w-full overflow-x-hidden px-2 sm:px-4 lg:px-6 py-3 sm:py-4 lg:py-6">
+      <div className="max-w-7xl mx-auto space-y-3 sm:space-y-4 lg:space-y-6">
       {/* Header */}
-      <div className="flex flex-col space-y-4 sm:space-y-0 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl sm:text-3xl font-semibold text-gray-900 tracking-tight">Employee Management</h1>
-          <p className="mt-1 text-sm text-gray-600">Manage your organization’s workforce.</p>
+      <div className="flex flex-col space-y-3 sm:space-y-0 sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div className="min-w-0 flex-1">
+          <h1 className="text-xl sm:text-2xl lg:text-3xl font-semibold text-gray-900 tracking-tight truncate">Employee Management</h1>
+          <p className="mt-1 text-xs sm:text-sm text-gray-600">Manage your organization's workforce.</p>
         </div>
-        <button onClick={openAdd} className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium text-white bg-gradient-to-r from-indigo-600 to-violet-600 shadow hover:brightness-110 transition-all">
-          <span className="text-base">＋</span> Add Employee
+        <button onClick={openAdd} className="w-full sm:w-auto flex-shrink-0 inline-flex items-center justify-center gap-2 rounded-xl px-3 sm:px-4 py-2 sm:py-2.5 text-sm font-medium text-white bg-gradient-to-r from-indigo-600 to-violet-600 shadow hover:brightness-110 transition-all">
+          <span className="text-base">＋</span> <span className="hidden xs:inline">Add Employee</span><span className="xs:hidden">Add</span>
         </button>
       </div>
 
       {/* Search & Filters */}
-      <Glass className="p-3 sm:p-4">
+      <Glass className="p-3 sm:p-4 overflow-hidden">
         <div className="flex flex-col md:flex-row gap-3 md:items-center">
           <div className="relative flex-1">
-            <input value={q} onChange={e=>{setQ(e.target.value); setPage(1); handleSuggest(e.target.value);}} placeholder="Search employees (skills, roles, dept)…" className={S.searchInput + " pl-10 pr-3"} />
+            <input value={q} onChange={e=>{setQ(e.target.value); setPage(1);}} placeholder="Search employees (skills, roles, dept)…" className={S.searchInput + " pl-10 pr-3"} />
             <span className="absolute left-3 top-2.5 text-gray-400">🔎</span>
-            {suggestions.length>0 && (
-              <div className="absolute z-10 mt-1 w-full rounded-xl border border-white/40 bg-white/90 backdrop-blur shadow p-2">
-                <div className="text-[11px] text-gray-500 mb-1">Suggestions</div>
-                <div className="flex flex-wrap gap-2">
-                  {suggestions.map(s=> (
-                    <button key={s} onClick={()=>{setQ(s); setSuggestions([]);}} className="px-2 py-1 rounded-lg bg-indigo-50 text-indigo-700 text-xs hover:bg-indigo-100">{s}</button>
-                  ))}
-                </div>
-              </div>
-            )}
           </div>
           <div className="flex flex-col sm:flex-row gap-3">
             <select value={dept} onChange={e=>{setDept(e.target.value); setPage(1);}} className="w-full sm:w-auto rounded-xl border border-white/40 bg-white/80 backdrop-blur px-3 py-2.5 text-sm text-gray-900 min-w-0">
@@ -379,23 +429,23 @@ export default function Page() {
 
       {/* Table */}
       <Glass>
-        <div className="p-4 border-b border-white/20">
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="text-sm font-semibold text-gray-900 tracking-wide">All Employees ({filtered.length})</h2>
+        <div className="p-3 sm:p-4 border-b border-white/20">
+          <div className="flex flex-col xs:flex-row xs:items-center xs:justify-between gap-2 mb-3">
+            <h2 className="text-sm sm:text-base font-semibold text-gray-900 tracking-wide">All Employees ({filtered.length})</h2>
             {selected.size > 0 && <span className="text-xs text-gray-600 font-medium">Selected: {selected.size}</span>}
           </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <button onClick={()=>bulkStatus("Active")} disabled={selected.size===0} className="px-3 py-1.5 rounded-lg border border-emerald-300 bg-emerald-50 text-emerald-700 text-xs font-semibold hover:bg-emerald-100 disabled:opacity-40 disabled:cursor-not-allowed transition-all">Set Active</button>
-            <button onClick={()=>bulkStatus("Inactive")} disabled={selected.size===0} className="px-3 py-1.5 rounded-lg border border-rose-300 bg-rose-50 text-rose-700 text-xs font-semibold hover:bg-rose-100 disabled:opacity-40 disabled:cursor-not-allowed transition-all">Set Inactive</button>
-            <button onClick={bulkChangeDept} disabled={selected.size===0} className="px-3 py-1.5 rounded-lg border border-indigo-300 bg-indigo-50 text-indigo-700 text-xs font-semibold hover:bg-indigo-100 disabled:opacity-40 disabled:cursor-not-allowed transition-all">Change Dept</button>
-            <button onClick={bulkAssignProject} disabled={selected.size===0} className="px-3 py-1.5 rounded-lg border border-violet-300 bg-violet-50 text-violet-700 text-xs font-semibold hover:bg-violet-100 disabled:opacity-40 disabled:cursor-not-allowed transition-all">Assign Project</button>
-            <button onClick={exportCSV} className="px-3 py-1.5 rounded-lg border border-blue-300 bg-blue-50 text-blue-700 text-xs font-semibold hover:bg-blue-100 transition-all">Export CSV</button>
-            <button onClick={()=>window.print()} className="px-3 py-1.5 rounded-lg border border-gray-300 bg-gray-50 text-gray-700 text-xs font-semibold hover:bg-gray-100 transition-all">Print/PDF</button>
-            <button onClick={syncFromSheetPrompt} className="px-3 py-1.5 rounded-lg border border-cyan-300 bg-cyan-50 text-cyan-700 text-xs font-semibold hover:bg-cyan-100 transition-all">Sync Sheets</button>
+          <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 text-xs">
+            <button onClick={()=>bulkStatus("Active")} disabled={selected.size===0} className="px-2 py-1.5 rounded-lg border border-emerald-300 bg-emerald-50 text-emerald-700 font-semibold hover:bg-emerald-100 disabled:opacity-40 disabled:cursor-not-allowed transition-all whitespace-nowrap text-[10px] sm:text-xs">Set Active</button>
+            <button onClick={()=>bulkStatus("Inactive")} disabled={selected.size===0} className="px-2 py-1.5 rounded-lg border border-rose-300 bg-rose-50 text-rose-700 font-semibold hover:bg-rose-100 disabled:opacity-40 disabled:cursor-not-allowed transition-all whitespace-nowrap text-[10px] sm:text-xs">Set Inactive</button>
+            <button onClick={bulkChangeDept} disabled={selected.size===0} className="px-2 py-1.5 rounded-lg border border-indigo-300 bg-indigo-50 text-indigo-700 font-semibold hover:bg-indigo-100 disabled:opacity-40 disabled:cursor-not-allowed transition-all whitespace-nowrap text-[10px] sm:text-xs">Change Dept</button>
+            <button onClick={bulkAssignProject} disabled={selected.size===0} className="px-2 py-1.5 rounded-lg border border-violet-300 bg-violet-50 text-violet-700 font-semibold hover:bg-violet-100 disabled:opacity-40 disabled:cursor-not-allowed transition-all whitespace-nowrap text-[10px] sm:text-xs">Assign Project</button>
+            <button onClick={exportCSV} className="px-2 py-1.5 rounded-lg border border-blue-300 bg-blue-50 text-blue-700 font-semibold hover:bg-blue-100 transition-all whitespace-nowrap text-[10px] sm:text-xs">Export CSV</button>
+            <button onClick={()=>window.print()} className="px-2 py-1.5 rounded-lg border border-gray-300 bg-gray-50 text-gray-700 font-semibold hover:bg-gray-100 transition-all whitespace-nowrap text-[10px] sm:text-xs hidden xs:inline-flex">Print/PDF</button>
+            <button onClick={syncFromSheetPrompt} className="px-2 py-1.5 rounded-lg border border-cyan-300 bg-cyan-50 text-cyan-700 font-semibold hover:bg-cyan-100 transition-all whitespace-nowrap text-[10px] sm:text-xs hidden sm:inline-flex">Sync Sheets</button>
           </div>
         </div>
         {/* Desktop Table View */}
-        <div className="hidden lg:block overflow-x-auto">
+        <div className="hidden lg:block overflow-x-auto -mx-4 sm:mx-0">
           <table className="min-w-full text-sm">
             <thead>
               <tr className="text-left text-gray-700 uppercase tracking-wide">
@@ -442,53 +492,53 @@ export default function Page() {
         </div>
 
         {/* Mobile/Tablet Card View */}
-        <div className="lg:hidden space-y-4 p-4">
+        <div className="lg:hidden space-y-2 sm:space-y-3 p-2 sm:p-3 lg:p-4">
           {items.map(e=> (
-            <div key={e.id} className="bg-white/60 backdrop-blur-sm border border-white/40 rounded-xl p-4 hover:bg-white/80 transition-all">
-              <div className="flex items-start justify-between mb-3">
-                <div className="flex items-center gap-3 flex-1 min-w-0">
-                  <input type="checkbox" checked={selected.has(e.id)} onChange={(ev)=>toggleSelect(e.id, ev.target.checked)} className="flex-shrink-0" />
-                  <div className="h-10 w-10 rounded-full bg-gradient-to-br from-indigo-200 to-violet-200 flex items-center justify-center text-sm font-semibold text-indigo-700 flex-shrink-0">{e.firstName[0]}{e.lastName[0]}</div>
+            <div key={e.id} className="bg-white/60 backdrop-blur-sm border border-white/40 rounded-xl p-3 hover:bg-white/80 transition-all overflow-hidden">
+              <div className="flex items-start justify-between mb-2 sm:mb-3">
+                <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
+                  <input type="checkbox" checked={selected.has(e.id)} onChange={(ev)=>toggleSelect(e.id, ev.target.checked)} className="flex-shrink-0 mt-1" />
+                  <div className="h-8 w-8 sm:h-10 sm:w-10 rounded-full bg-gradient-to-br from-indigo-200 to-violet-200 flex items-center justify-center text-xs sm:text-sm font-semibold text-indigo-700 flex-shrink-0">{e.firstName[0]}{e.lastName[0]}</div>
                   <div className="min-w-0 flex-1">
-                    <div className="font-semibold text-gray-900 truncate">{e.firstName} {e.lastName}</div>
-                    <div className="text-sm text-gray-600 truncate">{e.email}</div>
+                    <div className="font-semibold text-sm sm:text-base text-gray-900 truncate">{e.firstName} {e.lastName}</div>
+                    <div className="text-xs sm:text-sm text-gray-600 truncate">{e.email}</div>
                   </div>
                 </div>
-                <div className="flex items-center gap-1 flex-shrink-0 ml-2">
+                <div className="flex items-center gap-0.5 sm:gap-1 flex-shrink-0 ml-1">
                   <IconButton title="View" onClick={()=>setView(e)}>👁️</IconButton>
                   <IconButton title="Edit" onClick={()=>openEdit(e)}>✏️</IconButton>
                   <IconButton title="Delete" danger onClick={()=>setConfirm(e)}>🗑️</IconButton>
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-3 text-sm">
+              <div className="grid grid-cols-2 gap-2 text-xs sm:text-sm">
                 <div>
-                  <div className="text-xs text-gray-500 uppercase tracking-wide">Job Title</div>
-                  <div className="font-medium text-gray-900 truncate">{e.jobTitle}</div>
+                  <div className="text-[10px] sm:text-xs text-gray-500 uppercase tracking-wide">Job Title</div>
+                  <div className="font-medium text-gray-900 truncate mt-0.5">{e.jobTitle}</div>
                 </div>
                 <div>
-                  <div className="text-xs text-gray-500 uppercase tracking-wide">Department</div>
-                  <div className="font-medium text-gray-900 truncate">{e.department}</div>
+                  <div className="text-[10px] sm:text-xs text-gray-500 uppercase tracking-wide">Department</div>
+                  <div className="font-medium text-gray-900 truncate mt-0.5">{e.department}</div>
                 </div>
                 <div>
-                  <div className="text-xs text-gray-500 uppercase tracking-wide">Status</div>
-                  <div><Badge status={e.status} /></div>
+                  <div className="text-[10px] sm:text-xs text-gray-500 uppercase tracking-wide">Status</div>
+                  <div className="mt-0.5"><Badge status={e.status} /></div>
                 </div>
                 <div>
-                  <div className="text-xs text-gray-500 uppercase tracking-wide">Join Date</div>
-                  <div className="font-medium text-gray-900">{new Date(e.joinDate).toLocaleDateString()}</div>
+                  <div className="text-[10px] sm:text-xs text-gray-500 uppercase tracking-wide">Join Date</div>
+                  <div className="font-medium text-gray-900 mt-0.5">{new Date(e.joinDate).toLocaleDateString()}</div>
                 </div>
               </div>
             </div>
           ))}
           {items.length===0 && (
-            <div className="px-6 py-16 text-center text-gray-500">No employees found.</div>
+            <div className="px-4 py-12 sm:px-6 sm:py-16 text-center text-sm text-gray-500">No employees found.</div>
           )}
         </div>
-        <div className="flex flex-col sm:flex-row items-center justify-between px-4 py-3 border-t border-white/20 gap-3">
+        <div className="flex flex-col sm:flex-row items-center justify-between px-3 sm:px-4 py-2 sm:py-3 border-t border-white/20 gap-2 sm:gap-3">
           <div className="text-xs text-gray-500 order-2 sm:order-1">Page {page} of {total}</div>
-          <div className="flex gap-2 order-1 sm:order-2">
-            <button className="px-4 py-2 rounded-lg border border-white/40 bg-white/80 hover:bg-white/90 disabled:opacity-40 text-sm font-medium transition-all" disabled={page===1} onClick={()=>setPage(p=>Math.max(1,p-1))}>Previous</button>
-            <button className="px-4 py-2 rounded-lg border border-white/40 bg-white/80 hover:bg-white/90 disabled:opacity-40 text-sm font-medium transition-all" disabled={page===total} onClick={()=>setPage(p=>Math.min(total,p+1))}>Next</button>
+          <div className="flex gap-1.5 sm:gap-2 order-1 sm:order-2">
+            <button className="px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg border border-white/40 bg-white/80 hover:bg-white/90 disabled:opacity-40 text-xs sm:text-sm font-medium transition-all" disabled={page===1} onClick={()=>setPage(p=>Math.max(1,p-1))}>Previous</button>
+            <button className="px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg border border-white/40 bg-white/80 hover:bg-white/90 disabled:opacity-40 text-xs sm:text-sm font-medium transition-all" disabled={page===total} onClick={()=>setPage(p=>Math.min(total,p+1))}>Next</button>
           </div>
         </div>
       </Glass>
@@ -496,20 +546,23 @@ export default function Page() {
       {/* Modal: Create/Edit */}
       {showForm && (
         <Modal title={editId?"Edit Employee":"Add Employee"} onClose={()=>setShowForm(false)} wide>
-          {err && <div className="mb-3 text-rose-600 text-sm">{err}</div>}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
+          {err && <div className="mb-3 text-rose-600 text-xs sm:text-sm">{err}</div>}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-4 sm:gap-x-6 gap-y-3 sm:gap-y-4">
             <Field label="First Name" value={form.firstName} onChange={v=>setForm({...form, firstName:v})} required />
             <Field label="Last Name" value={form.lastName} onChange={v=>setForm({...form, lastName:v})} required />
             <Field label="Email" type="email" value={form.email} onChange={v=>setForm({...form, email:v})} required />
             <Field label="Phone" value={form.phone ?? ""} onChange={v=>setForm({...form, phone:v})} />
             <Field label="Job Title" value={form.jobTitle} onChange={v=>setForm({...form, jobTitle:v})} required />
             <Field label="Department" value={form.department} onChange={v=>setForm({...form, department:v})} required />
-            <Select label="Status" value={form.status} onChange={v=>setForm({...form, status:v as Status})} options={["Active","On Leave","Inactive"]} />
-            <Field label="Join Date" type="date" value={form.joinDate} onChange={v=>setForm({...form, joinDate:v})} />
-            <Field label="Location" value={form.location ?? ""} onChange={v=>setForm({...form, location:v})} />
-            <Field label="Performance Rating (1-5)" type="number" value={String(form.performanceRating ?? 0)} onChange={v=>setForm({...form, performanceRating:Number(v)})} />
-            <Field label="Salary (monthly)" type="number" value={String(form.salary ?? 0)} onChange={v=>setForm({...form, salary:Number(v)})} />
-            <Field label="Leave Balance (days)" type="number" value={String(form.leaveBalance ?? 0)} onChange={v=>setForm({...form, leaveBalance:Number(v)})} />
+          <Select label="Status" value={form.status} onChange={v=>setForm({...form, status:v as Status})} options={["Active","On Leave","Inactive"]} />
+          <Field label="Join Date" type="date" value={form.joinDate} onChange={v=>setForm({...form, joinDate:v})} />
+          {!editId && (
+            <Field label="Password" type="password" value={form.password ?? ""} onChange={v=>setForm({...form, password:v})} required />
+          )}
+          <Field label="Location" value={form.location ?? ""} onChange={v=>setForm({...form, location:v})} />
+          <Field label="Performance Rating (1-5)" type="number" value={String(form.performanceRating ?? 0)} onChange={v=>setForm({...form, performanceRating:Number(v)})} />
+          <Field label="Salary (monthly)" type="number" value={String(form.salary ?? 0)} onChange={v=>setForm({...form, salary:Number(v)})} />
+          <Field label="Leave Balance (days)" type="number" value={String(form.leaveBalance ?? 0)} onChange={v=>setForm({...form, leaveBalance:Number(v)})} />
             <ChipsField label="Skills" value={form.skills ?? []} onChange={(arr)=>setForm({...form, skills:arr})} placeholder="Type skill and press Enter" />
             <ChipsField label="Certifications" value={form.certifications ?? []} onChange={(arr)=>setForm({...form, certifications:arr})} placeholder="Type cert and press Enter" />
             <ChipsField label="Projects" value={form.projects ?? []} onChange={(arr)=>setForm({...form, projects:arr})} placeholder="Type project and press Enter" />
@@ -532,9 +585,9 @@ export default function Page() {
               )}
             </div>
           </div>
-          <div className="mt-6 flex items-center justify-end gap-3">
-            <button className="px-5 py-2.5 rounded-xl border-2 border-gray-400 bg-white text-gray-700 font-semibold hover:bg-gray-50 hover:border-gray-500 transition-all" onClick={()=>setShowForm(false)}>Cancel</button>
-            <button className="px-5 py-2.5 rounded-xl text-white font-semibold bg-gradient-to-r from-indigo-600 to-violet-600 shadow-md hover:brightness-110 transition-all" onClick={saveForm}>{editId?"Save Changes":"Create"}</button>
+          <div className="mt-4 sm:mt-6 flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2 sm:gap-3">
+            <button className="px-4 sm:px-5 py-2 sm:py-2.5 rounded-xl border-2 border-gray-400 bg-white text-gray-700 text-sm font-semibold hover:bg-gray-50 hover:border-gray-500 transition-all" onClick={()=>setShowForm(false)}>Cancel</button>
+            <button className="px-4 sm:px-5 py-2 sm:py-2.5 rounded-xl text-white text-sm font-semibold bg-gradient-to-r from-indigo-600 to-violet-600 shadow-md hover:brightness-110 transition-all" onClick={saveForm}>{editId?"Save Changes":"Create"}</button>
           </div>
         </Modal>
       )}
@@ -542,15 +595,15 @@ export default function Page() {
       {/* Modal: View */}
       {view && (
         <Modal title="Employee Details" onClose={()=>setView(null)}>
-          <div className="flex items-start gap-4">
-            <div className="h-12 w-12 rounded-full bg-gradient-to-br from-indigo-200 to-violet-200 flex items-center justify-center text-sm font-semibold text-indigo-700">{view.firstName[0]}{view.lastName[0]}</div>
-            <div className="space-y-1">
-              <div className="text-lg font-semibold">{view.firstName} {view.lastName}</div>
-              <div className="text-gray-600">{view.email}</div>
+          <div className="flex items-start gap-3 sm:gap-4">
+            <div className="h-10 w-10 sm:h-12 sm:w-12 rounded-full bg-gradient-to-br from-indigo-200 to-violet-200 flex items-center justify-center text-xs sm:text-sm font-semibold text-indigo-700 flex-shrink-0">{view.firstName[0]}{view.lastName[0]}</div>
+            <div className="space-y-1 min-w-0 flex-1">
+              <div className="text-base sm:text-lg font-semibold truncate">{view.firstName} {view.lastName}</div>
+              <div className="text-sm sm:text-base text-gray-600 truncate">{view.email}</div>
               <Badge status={view.status} />
             </div>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-6 text-sm">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 mt-4 sm:mt-6 text-xs sm:text-sm">
             <KeyVal k="Job Title" v={view.jobTitle} />
             <KeyVal k="Department" v={view.department} />
             <KeyVal k="Join Date" v={new Date(view.joinDate).toLocaleDateString()} />
@@ -559,20 +612,21 @@ export default function Page() {
             <KeyVal k="Rating" v={String(view.performanceRating ?? "—")} />
             <KeyVal k="Skills" v={(view.skills ?? []).join(", ") || "—"} />
           </div>
-          <div className="mt-6 flex justify-end"><button className="px-4 py-2 rounded-xl border border-white/30" onClick={()=>setView(null)}>Close</button></div>
+          <div className="mt-4 sm:mt-6 flex justify-end"><button className="px-3 sm:px-4 py-2 rounded-xl border border-white/30 text-sm" onClick={()=>setView(null)}>Close</button></div>
         </Modal>
       )}
 
       {/* Modal: Delete */}
       {confirm && (
         <Modal title="Delete Employee" onClose={()=>setConfirm(null)}>
-          <p className="text-sm text-gray-600">Delete {confirm.firstName} {confirm.lastName}? This action cannot be undone.</p>
-          <div className="mt-6 flex items-center justify-end gap-2">
-            <button className="px-4 py-2 rounded-xl border border-white/30" onClick={()=>setConfirm(null)}>Cancel</button>
-            <button className="px-4 py-2 rounded-xl text-white bg-rose-600 hover:bg-rose-700" onClick={doDelete}>Delete</button>
+          <p className="text-xs sm:text-sm text-gray-600">Delete {confirm.firstName} {confirm.lastName}? This action cannot be undone.</p>
+          <div className="mt-4 sm:mt-6 flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2">
+            <button className="px-3 sm:px-4 py-2 rounded-xl border border-white/30 text-sm" onClick={()=>setConfirm(null)}>Cancel</button>
+            <button className="px-3 sm:px-4 py-2 rounded-xl text-white text-sm bg-rose-600 hover:bg-rose-700" onClick={doDelete}>Delete</button>
           </div>
         </Modal>
       )}
+      </div>
     </div>
   );
 }
@@ -601,7 +655,7 @@ function Modal({ title, onClose, children, wide }: { title: string; onClose: () 
     return () => window.removeEventListener("keydown", onEsc);
   }, [onClose]);
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 bg-black/30">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/30 backdrop-blur-sm">
       <div className="absolute inset-0" onClick={onClose} />
       <div className={wide ? S.modalPanelWide : S.modalPanel}>
         <div className="flex items-center justify-between">

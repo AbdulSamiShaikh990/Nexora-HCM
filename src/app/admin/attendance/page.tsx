@@ -183,7 +183,7 @@ function ToolbarButton({ children, onClick, variant = "default" }: { children: R
       ? "bg-transparent hover:bg-gray-50 border"
       : "bg-gray-100 hover:bg-gray-200 border";
   return (
-    <button onClick={onClick} className={`h-9 px-3 rounded-md text-sm font-medium text-gray-800 ${styles}`}>
+    <button onClick={onClick} className={`h-8 sm:h-9 px-2 sm:px-3 rounded-md text-xs sm:text-sm font-medium text-gray-800 ${styles}`}>
       {children}
     </button>
   );
@@ -193,15 +193,15 @@ function ToolbarButton({ children, onClick, variant = "default" }: { children: R
 function Modal({ open, onClose, title, children, footer }: { open: boolean; onClose: () => void; title: string; children: React.ReactNode; footer?: React.ReactNode }) {
   if (!open) return null;
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
       <div className="absolute inset-0 bg-black/30" onClick={onClose} />
-      <div className="relative z-10 w-full max-w-md rounded-xl bg-white border shadow-lg p-4 sm:p-6">
+      <div className="relative z-10 w-full max-w-[95vw] sm:max-w-md rounded-t-xl sm:rounded-xl bg-white border shadow-lg p-4 sm:p-6 max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between">
-          <h3 className="text-lg font-semibold text-gray-900">{title}</h3>
-          <button onClick={onClose} className="rounded-md p-1 hover:bg-gray-100" aria-label="Close">✕</button>
+          <h3 className="text-base sm:text-lg font-semibold text-gray-900 truncate pr-2">{title}</h3>
+          <button onClick={onClose} className="rounded-md p-1 hover:bg-gray-100 flex-shrink-0" aria-label="Close">✕</button>
         </div>
-        <div className="mt-4">{children}</div>
-        {footer && <div className="mt-6 flex justify-end gap-2">{footer}</div>}
+        <div className="mt-3 sm:mt-4">{children}</div>
+        {footer && <div className="mt-4 sm:mt-6 flex flex-col-reverse sm:flex-row justify-end gap-2">{footer}</div>}
       </div>
     </div>
   );
@@ -260,57 +260,57 @@ export default function Page() {
 
   return (
     <div className="min-h-screen w-full overflow-x-hidden bg-gradient-to-br from-indigo-50 to-purple-50">
-      <div className="mx-auto w-full max-w-7xl p-3 sm:p-4 lg:p-6">
+      <div className="mx-auto w-full max-w-7xl p-2 sm:p-4 lg:p-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold text-gray-900">Attendance Tracking</h1>
-          <p className="text-sm text-gray-600">Monitor employee attendance and working hours</p>
+      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 sm:gap-4">
+        <div className="min-w-0 flex-1">
+          <h1 className="text-xl sm:text-2xl font-semibold text-gray-900 truncate">Attendance Tracking</h1>
+          <p className="text-xs sm:text-sm text-gray-600">Monitor employee attendance and working hours</p>
         </div>
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap gap-1.5 sm:gap-2">
           <ToolbarButton variant="ghost" onClick={() => alert("Export PDF (placeholder)")}>Export PDF</ToolbarButton>
           <ToolbarButton variant="ghost" onClick={() => alert("Export Excel (placeholder)")}>Export Excel</ToolbarButton>
         </div>
       </div>
 
       {/* Stats */}
-      <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-        <Card className="p-3 sm:p-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-600">Present Today</p>
-              <p className="mt-2 text-2xl font-semibold text-gray-900">{summary.present}</p>
-              <p className="text-xs text-gray-500 mt-1">{summary.avgPer}% attendance rate</p>
+      <div className="mt-3 sm:mt-4 grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3 lg:gap-4">
+        <Card className="p-2 sm:p-3 lg:p-4">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+            <div className="min-w-0 flex-1">
+              <p className="text-xs sm:text-sm text-gray-600 truncate">Present Today</p>
+              <p className="mt-1 sm:mt-2 text-lg sm:text-2xl font-semibold text-gray-900">{summary.present}</p>
+              <p className="text-[10px] sm:text-xs text-gray-500 mt-0.5 sm:mt-1 truncate">{summary.avgPer}% attendance rate</p>
             </div>
             <Badge color="green">OK</Badge>
           </div>
         </Card>
-        <Card className="p-3 sm:p-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-600">Late Arrivals</p>
-              <p className="mt-2 text-2xl font-semibold text-gray-900">{summary.late}</p>
-              <p className="text-xs text-gray-500 mt-1">of workforce</p>
+        <Card className="p-2 sm:p-3 lg:p-4">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+            <div className="min-w-0 flex-1">
+              <p className="text-xs sm:text-sm text-gray-600 truncate">Late Arrivals</p>
+              <p className="mt-1 sm:mt-2 text-lg sm:text-2xl font-semibold text-gray-900">{summary.late}</p>
+              <p className="text-[10px] sm:text-xs text-gray-500 mt-0.5 sm:mt-1 truncate">of workforce</p>
             </div>
             <Badge color="orange">Late</Badge>
           </div>
         </Card>
-        <Card className="p-3 sm:p-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-600">Absent</p>
-              <p className="mt-2 text-2xl font-semibold text-gray-900">{summary.absent}</p>
-              <p className="text-xs text-gray-500 mt-1">of workforce</p>
+        <Card className="p-2 sm:p-3 lg:p-4">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+            <div className="min-w-0 flex-1">
+              <p className="text-xs sm:text-sm text-gray-600 truncate">Absent</p>
+              <p className="mt-1 sm:mt-2 text-lg sm:text-2xl font-semibold text-gray-900">{summary.absent}</p>
+              <p className="text-[10px] sm:text-xs text-gray-500 mt-0.5 sm:mt-1 truncate">of workforce</p>
             </div>
             <Badge color="red">Issue</Badge>
           </div>
         </Card>
-        <Card className="p-3 sm:p-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-600">Avg. Hours</p>
-              <p className="mt-2 text-2xl font-semibold text-gray-900">{summary.avgHours}h</p>
-              <p className="text-xs text-gray-500 mt-1">Per employee today</p>
+        <Card className="p-2 sm:p-3 lg:p-4">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+            <div className="min-w-0 flex-1">
+              <p className="text-xs sm:text-sm text-gray-600 truncate">Avg. Hours</p>
+              <p className="mt-1 sm:mt-2 text-lg sm:text-2xl font-semibold text-gray-900">{summary.avgHours}h</p>
+              <p className="text-[10px] sm:text-xs text-gray-500 mt-0.5 sm:mt-1 truncate">Per employee today</p>
             </div>
             <Badge color="blue">Info</Badge>
           </div>
@@ -318,8 +318,8 @@ export default function Page() {
       </div>
 
       {/* Tabs */}
-      <div className="mt-4">
-        <div className="flex items-center gap-2 flex-wrap">
+      <div className="mt-3 sm:mt-4">
+        <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
           <ToolbarButton variant={tab === "shift" ? "primary" : "ghost"} onClick={() => setTab("shift")}>Shift Management</ToolbarButton>
           <ToolbarButton variant={tab === "self" ? "primary" : "ghost"} onClick={() => setTab("self")}>Self-Service</ToolbarButton>
           <ToolbarButton variant={tab === "live" ? "primary" : "ghost"} onClick={() => setTab("live")}>Live Status</ToolbarButton>
@@ -327,13 +327,13 @@ export default function Page() {
       </div>
 
       {/* Top toolbar */}
-      <div className="mt-4 flex flex-col md:flex-row md:items-center gap-3">
+      <div className="mt-3 sm:mt-4 flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
         <div className="flex items-center gap-2">
           <ToolbarButton onClick={() => setIsDateDialogOpen(true)}>
             <span className="mr-2">🗓️</span>
-            <span>Select Date</span>
+            <span className="hidden xs:inline">Select Date</span><span className="xs:hidden">Date</span>
           </ToolbarButton>
-          <span className="text-sm text-gray-600">{new Date(selectedDate).toLocaleDateString()}</span>
+          <span className="text-xs sm:text-sm text-gray-600 truncate">{new Date(selectedDate).toLocaleDateString()}</span>
         </div>
       </div>
 
@@ -342,14 +342,14 @@ export default function Page() {
         <div className="mt-4 flex flex-col gap-6 items-start">
           {showDaily && (
             <Card className="w-full">
-              <div className="p-3 sm:p-4 lg:p-6">
-                <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-                  <div>
-                    <h2 className="text-lg font-semibold text-gray-900">
+              <div className="p-2 sm:p-3 lg:p-4">
+                <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 sm:gap-4">
+                  <div className="min-w-0 flex-1">
+                    <h2 className="text-base sm:text-lg font-semibold text-gray-900 truncate">
                       Daily Attendance – {new Date(selectedDate).toLocaleDateString()}
                     </h2>
                   </div>
-                  <div className="flex flex-wrap items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
                     <select
                       className="h-9 rounded-md border border-gray-300 px-3 text-sm bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                       value={department}
@@ -368,9 +368,9 @@ export default function Page() {
                 </div>
 
                 {/* Shift inputs */}
-                <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
+                <div className="mt-3 sm:mt-4 grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3">
                   <div className="flex items-center gap-2">
-                    <label className="text-sm text-gray-700 w-24">Shift Start</label>
+                    <label className="text-xs sm:text-sm text-gray-700 w-20 sm:w-24 flex-shrink-0">Shift Start</label>
                     <input
                       type="time"
                       className="h-9 w-full rounded-md border border-gray-300 px-3 text-sm bg-white text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500"
@@ -379,7 +379,7 @@ export default function Page() {
                     />
                   </div>
                   <div className="flex items-center gap-2">
-                    <label className="text-sm text-gray-700 w-24">Shift End</label>
+                    <label className="text-xs sm:text-sm text-gray-700 w-20 sm:w-24 flex-shrink-0">Shift End</label>
                     <input
                       type="time"
                       className="h-9 w-full rounded-md border border-gray-300 px-3 text-sm bg-white text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500"
@@ -390,19 +390,19 @@ export default function Page() {
                 </div>
 
                 {/* Table */}
-                <div className="mt-6 -mx-4 sm:mx-0">
+                <div className="mt-4 sm:mt-6 -mx-2 sm:mx-0">
                   <div className="overflow-x-auto">
-                    <table className="min-w-full divide-y divide-gray-200">
+                    <table className="min-w-full divide-y divide-gray-200 text-xs sm:text-sm">
                     <thead className="bg-gray-50">
                       <tr>
-                        <th className="px-2 sm:px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Employee</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Check In</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Check Out</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider hidden sm:table-cell">Total Hours</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider hidden sm:table-cell">Late</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider hidden md:table-cell">Early Dep.</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider hidden md:table-cell">Overtime</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Status</th>
+                        <th className="px-2 sm:px-4 py-2 sm:py-3 text-left text-[10px] sm:text-xs font-medium text-gray-600 uppercase tracking-wider">Employee</th>
+                        <th className="px-2 sm:px-4 py-2 sm:py-3 text-left text-[10px] sm:text-xs font-medium text-gray-600 uppercase tracking-wider">Check In</th>
+                        <th className="px-2 sm:px-4 py-2 sm:py-3 text-left text-[10px] sm:text-xs font-medium text-gray-600 uppercase tracking-wider">Check Out</th>
+                        <th className="px-2 sm:px-4 py-2 sm:py-3 text-left text-[10px] sm:text-xs font-medium text-gray-600 uppercase tracking-wider hidden md:table-cell">Total Hours</th>
+                        <th className="px-2 sm:px-4 py-2 sm:py-3 text-left text-[10px] sm:text-xs font-medium text-gray-600 uppercase tracking-wider hidden md:table-cell">Late</th>
+                        <th className="px-2 sm:px-4 py-2 sm:py-3 text-left text-[10px] sm:text-xs font-medium text-gray-600 uppercase tracking-wider hidden lg:table-cell">Early Dep.</th>
+                        <th className="px-2 sm:px-4 py-2 sm:py-3 text-left text-[10px] sm:text-xs font-medium text-gray-600 uppercase tracking-wider hidden lg:table-cell">Overtime</th>
+                        <th className="px-2 sm:px-4 py-2 sm:py-3 text-left text-[10px] sm:text-xs font-medium text-gray-600 uppercase tracking-wider">Status</th>
                       </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-100">
@@ -415,20 +415,20 @@ export default function Page() {
                         const otStr = minutesToHm(deltas.ot);
                         return (
                           <tr key={row.id} className="hover:bg-gray-50">
-                            <td className="px-2 sm:px-4 py-3 whitespace-normal sm:whitespace-nowrap text-sm text-gray-900 max-w-[120px] sm:max-w-[160px] truncate">{row.employee}</td>
-                            <td className="px-4 py-3 whitespace-normal sm:whitespace-nowrap text-sm text-gray-900">{row.checkIn}</td>
-                            <td className="px-4 py-3 whitespace-normal sm:whitespace-nowrap text-sm text-gray-900">{row.checkOut}</td>
-                            <td className="px-4 py-3 whitespace-normal sm:whitespace-nowrap text-sm text-gray-900 hidden sm:table-cell">{totalStr}</td>
-                            <td className="px-4 py-3 whitespace-normal sm:whitespace-nowrap text-sm text-gray-700 hidden sm:table-cell">
+                            <td className="px-2 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm text-gray-900 max-w-[100px] sm:max-w-[160px] truncate">{row.employee}</td>
+                            <td className="px-2 sm:px-4 py-2 sm:py-3 whitespace-nowrap text-xs sm:text-sm text-gray-900">{row.checkIn}</td>
+                            <td className="px-2 sm:px-4 py-2 sm:py-3 whitespace-nowrap text-xs sm:text-sm text-gray-900">{row.checkOut}</td>
+                            <td className="px-2 sm:px-4 py-2 sm:py-3 whitespace-nowrap text-xs sm:text-sm text-gray-900 hidden md:table-cell">{totalStr}</td>
+                            <td className="px-2 sm:px-4 py-2 sm:py-3 whitespace-nowrap text-xs sm:text-sm text-gray-700 hidden md:table-cell">
                               {deltas.late > 0 ? <Badge color="orange">{lateStr}</Badge> : <span className="text-gray-400">-</span>}
                             </td>
-                            <td className="px-4 py-3 whitespace-normal sm:whitespace-nowrap text-sm text-gray-700 hidden md:table-cell">
+                            <td className="px-2 sm:px-4 py-2 sm:py-3 whitespace-nowrap text-xs sm:text-sm text-gray-700 hidden lg:table-cell">
                               {deltas.early > 0 ? <Badge color="orange">{earlyStr}</Badge> : <span className="text-gray-400">-</span>}
                             </td>
-                            <td className="px-4 py-3 whitespace-normal sm:whitespace-nowrap text-sm text-gray-700 hidden md:table-cell">
+                            <td className="px-2 sm:px-4 py-2 sm:py-3 whitespace-nowrap text-xs sm:text-sm text-gray-700 hidden lg:table-cell">
                               {deltas.ot > 0 ? <Badge color="blue">{otStr}</Badge> : <span className="text-gray-400">-</span>}
                             </td>
-                            <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">
+                            <td className="px-2 sm:px-4 py-2 sm:py-3 whitespace-nowrap text-xs sm:text-sm text-gray-700">
                               <Badge color={statusColor as any}>{row.status}</Badge>
                             </td>
                           </tr>
@@ -451,11 +451,11 @@ export default function Page() {
       {tab === "self" && (
         <div className="mt-4">
           <Card>
-            <div className="p-3 sm:p-4 lg:p-6">
-              <h2 className="text-lg font-semibold text-gray-900">Correction Requests</h2>
-              <div className="mt-4 -mx-3 sm:mx-0">
+            <div className="p-2 sm:p-3 lg:p-4">
+              <h2 className="text-base sm:text-lg font-semibold text-gray-900">Correction Requests</h2>
+              <div className="mt-3 sm:mt-4 -mx-2 sm:mx-0">
                 <div className="overflow-x-auto">
-                  <table className="min-w-full divide-y divide-gray-200">
+                  <table className="min-w-full divide-y divide-gray-200 text-xs sm:text-sm">
                   <thead className="bg-gray-50">
                     <tr>
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Employee</th>
@@ -530,19 +530,19 @@ export default function Page() {
       {/* Live Status */}
       {tab === "live" && (
         <div className="mt-4">
-          <Card className="p-3 sm:p-4 lg:p-6">
-            <h2 className="text-lg font-semibold text-gray-900">Who is In/Out right now</h2>
-            <div className="mt-4 grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <Card className="p-2 sm:p-3 lg:p-4">
+            <h2 className="text-base sm:text-lg font-semibold text-gray-900">Who is In/Out right now</h2>
+            <div className="mt-3 sm:mt-4 grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
               <div>
-                <div className="flex items-center gap-2 text-sm text-gray-700">
+                <div className="flex items-center gap-2 text-xs sm:text-sm text-gray-700">
                   <span>🧑‍💼</span>
                   <span className="font-medium">In</span>
                 </div>
-                <ul className="mt-3 space-y-3">
+                <ul className="mt-2 sm:mt-3 space-y-2 sm:space-y-3">
                   {liveIn.map((d) => (
-                    <li key={d.id} className="flex items-center justify-between rounded-lg border bg-white px-3 py-2 shadow-sm">
-                          <div className="text-sm text-gray-900">{d.employee}</div>
-                          <span className="inline-flex items-center rounded-full border px-2 py-1 text-xs text-gray-900 bg-gray-50">In since <span className="text-gray-900">{d.checkIn}</span></span>
+                    <li key={d.id} className="flex flex-col xs:flex-row xs:items-center xs:justify-between gap-1 xs:gap-2 rounded-lg border bg-white px-2 sm:px-3 py-2 shadow-sm">
+                          <div className="text-xs sm:text-sm text-gray-900 truncate">{d.employee}</div>
+                          <span className="inline-flex items-center rounded-full border px-2 py-1 text-[10px] sm:text-xs text-gray-900 bg-gray-50 flex-shrink-0">In since <span className="text-gray-900 ml-1">{d.checkIn}</span></span>
                     </li>
                   ))}
                   {liveIn.length === 0 && (
@@ -551,15 +551,15 @@ export default function Page() {
                 </ul>
               </div>
               <div>
-                <div className="flex items-center gap-2 text-sm text-gray-700">
+                <div className="flex items-center gap-2 text-xs sm:text-sm text-gray-700">
                   <span>🚪</span>
                   <span className="font-medium">Out</span>
                 </div>
-                <ul className="mt-3 space-y-3">
+                <ul className="mt-2 sm:mt-3 space-y-2 sm:space-y-3">
                   {liveOut.map((d) => (
-                    <li key={d.id} className="flex items-center justify-between rounded-lg border bg-white px-3 py-2 shadow-sm">
-                      <div className="text-sm text-gray-900">{d.employee}</div>
-                      <span className="inline-flex items-center rounded-full border px-2 py-1 text-xs text-gray-900 bg-gray-50">Last out {d.checkOut !== "-" ? d.checkOut : "N/A"}</span>
+                    <li key={d.id} className="flex flex-col xs:flex-row xs:items-center xs:justify-between gap-1 xs:gap-2 rounded-lg border bg-white px-2 sm:px-3 py-2 shadow-sm">
+                      <div className="text-xs sm:text-sm text-gray-900 truncate">{d.employee}</div>
+                      <span className="inline-flex items-center rounded-full border px-2 py-1 text-[10px] sm:text-xs text-gray-900 bg-gray-50 flex-shrink-0">Last out {d.checkOut !== "-" ? d.checkOut : "N/A"}</span>
                     </li>
                   ))}
                   {liveOut.length === 0 && (

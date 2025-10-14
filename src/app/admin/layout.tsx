@@ -15,11 +15,11 @@ export default function AdminLayout({
       <Sidebar />
 
       {/* Content area */}
-      <div className="min-h-dvh flex-1">
+      <div className="min-h-dvh flex-1 w-full overflow-x-hidden">
         <AdminHeader />
-        <div className="p-4 md:p-6">
-          <div className="mx-auto max-w-7xl">
-            <div className="rounded-xl bg-white p-4 md:p-6 shadow-sm">
+        <div className="p-2 sm:p-4 md:p-6">
+          <div className="mx-auto max-w-7xl w-full">
+            <div className="rounded-xl bg-white p-3 sm:p-4 md:p-6 shadow-sm">
               {children}
             </div>
           </div>
