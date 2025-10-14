@@ -91,16 +91,51 @@ export default function Sidebar() {
   const pathname = usePathname();
   const [expanded, setExpanded] = useState(true); // for md+
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchFocused, setSearchFocused] = useState(false);
 
   // Close drawer on route change (mobile)
   useEffect(() => {
     setMobileOpen(false);
   }, [pathname]);
 
+  // Filter navigation items based on search
+  const filteredNavItems = useMemo(() => {
+    if (!searchQuery.trim()) return navItems;
+    return navItems.filter((item) =>
+      item.label.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+  }, [searchQuery]);
+
+  // Keyboard navigation
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Only handle keyboard shortcuts when sidebar is expanded and not typing in search
+      if (!expanded || document.activeElement?.tagName === 'INPUT') return;
+      
+      // Ctrl/Cmd + K to focus search
+      if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+        e.preventDefault();
+        const searchInput = document.querySelector('input[placeholder="Search..."]') as HTMLInputElement;
+        searchInput?.focus();
+      }
+      
+      // Number keys for quick navigation
+      const num = parseInt(e.key);
+      if (num >= 1 && num <= filteredNavItems.length) {
+        e.preventDefault();
+        window.location.href = filteredNavItems[num - 1].href;
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [expanded, filteredNavItems]);
+
   // Determine active link
   const activeIndex = useMemo(
-    () => navItems.findIndex((i) => pathname?.startsWith(i.href)),
-    [pathname]
+    () => filteredNavItems.findIndex((i) => pathname?.startsWith(i.href)),
+    [pathname, filteredNavItems]
   );
 
   // Widths
@@ -165,16 +200,16 @@ export default function Sidebar() {
             )}
           </div>
 
-          {/* Search placeholder like screenshot */}
+          {/* Functional Search */}
           <div className="px-3">
             <div
-              className={`flex items-center rounded-full border bg-gray-50 px-3 py-2 text-sm text-gray-500 ${
-                expanded ? "" : "justify-center"
-              }`}
+              className={`flex items-center rounded-full border transition-colors ${
+                searchFocused ? "border-violet-300 bg-white" : "border-gray-200 bg-gray-50"
+              } ${expanded ? "" : "justify-center"}`}
             >
               <svg
                 viewBox="0 0 24 24"
-                className="h-4 w-4 text-gray-400"
+                className={`h-4 w-4 ml-3 ${searchFocused ? "text-violet-500" : "text-gray-400"}`}
                 fill="none"
                 stroke="currentColor"
                 strokeWidth="1.8"
@@ -182,39 +217,81 @@ export default function Sidebar() {
                 <circle cx="11" cy="11" r="7" />
                 <path d="M20 20 17 17" />
               </svg>
-              {expanded && <span className="ml-2">Search</span>}
+              {expanded && (
+                <input
+                  type="text"
+                  placeholder="Search..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onFocus={() => setSearchFocused(true)}
+                  onBlur={() => setSearchFocused(false)}
+                  className="flex-1 bg-transparent px-2 py-2 text-sm text-gray-700 placeholder-gray-500 outline-none"
+                />
+              )}
+              {expanded && searchQuery && (
+                <button
+                  onClick={() => setSearchQuery("")}
+                  className="mr-2 rounded-full p-1 hover:bg-gray-200"
+                >
+                  <svg viewBox="0 0 24 24" className="h-3 w-3 text-gray-400" fill="currentColor">
+                    <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                  </svg>
+                </button>
+              )}
             </div>
           </div>
 
           {/* Nav */}
           <nav className="mt-3 flex-1 space-y-1 px-2">
-            {navItems.map((item, idx) => {
-              const active = idx === activeIndex;
-              return (
-                <Link key={item.href} href={item.href} className="block">
-                  <div
-                    className={`flex items-center gap-3 rounded-full px-3 py-2 transition-colors ${
-                      active
-                        ? "bg-gradient-to-r from-indigo-600 to-violet-600 text-white"
-                        : "hover:bg-gray-100 text-gray-700"
-                    } ${expanded ? "" : "justify-center"}`}
-                  >
-                    {item.icon(active)}
-                    {expanded && (
-                      <span className={`text-sm ${active ? "text-white" : ""}`}>
-                        {item.label}
-                      </span>
-                    )}
+            {filteredNavItems.length > 0 ? (
+              filteredNavItems.map((item, idx) => {
+                const active = idx === activeIndex;
+                return (
+                  <Link key={item.href} href={item.href} className="block">
+                    <div
+                      className={`flex items-center gap-3 rounded-full px-3 py-2 transition-all duration-200 ${
+                        active
+                          ? "bg-gradient-to-r from-indigo-600 to-violet-600 text-white shadow-lg"
+                          : "hover:bg-gray-100 hover:scale-105 text-gray-700"
+                      } ${expanded ? "" : "justify-center"}`}
+                    >
+                      {item.icon(active)}
+                      {expanded && (
+                        <span className={`text-sm font-medium ${active ? "text-white" : ""}`}>
+                          {item.label}
+                        </span>
+                      )}
+                    </div>
+                  </Link>
+                );
+              })
+            ) : (
+              expanded && searchQuery && (
+                <div className="px-3 py-4 text-center">
+                  <div className="text-gray-400 text-sm">
+                    <svg viewBox="0 0 24 24" className="h-8 w-8 mx-auto mb-2 text-gray-300" fill="none" stroke="currentColor">
+                      <circle cx="11" cy="11" r="8"/>
+                      <path d="M21 21l-4.35-4.35"/>
+                    </svg>
+                    No results found for "{searchQuery}"
                   </div>
-                </Link>
-              );
-            })}
+                </div>
+              )
+            )}
           </nav>
 
-          {/* Collapse/expand for md+ */}
-          <div className="mb-4 mt-auto flex items-center justify-between px-3">
+          {/* Keyboard shortcuts hint and version */}
+          <div className="mb-4 mt-auto px-3">
             {expanded && (
-              <span className="text-[11px] text-gray-400">v1.0</span>
+              <div className="space-y-1">
+                <div className="flex items-center justify-between text-[10px] text-gray-400">
+                  <span>⌘K to search</span>
+                  <span>1-5 for quick nav</span>
+                </div>
+                <div className="text-center">
+                  <span className="text-[11px] text-gray-400">v1.0</span>
+                </div>
+              </div>
             )}
           </div>
 

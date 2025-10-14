@@ -11,9 +11,9 @@ export default function AuthLayout({
   children: React.ReactNode;
 }) {
   return (
-    <div className="flex min-h-screen">
-      {/* Left Side - Background Image */}
-      <div className="hidden lg:flex lg:w-1/2 xl:w-3/5 relative overflow-hidden">
+    <div className="relative min-h-screen overflow-hidden">
+      {/* Full Background Image */}
+      <div className="absolute inset-0">
         <div
           className="absolute inset-0 bg-center bg-no-repeat"
           style={{
@@ -32,9 +32,11 @@ export default function AuthLayout({
         />
       </div>
 
-      {/* Right Side - Login Form */}
-      <div className="w-full lg:w-1/2 xl:w-2/5 min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 p-4 sm:p-8">
-        {children}
+      {/* Login Form Container - Positioned in center-right */}
+      <div className="relative z-10 min-h-screen flex items-center justify-center p-4 sm:p-8">
+        <div className="w-full max-w-md ml-auto mr-8 lg:mr-16 xl:mr-24 lg:ml-0">
+          {children}
+        </div>
       </div>
     </div>
   );

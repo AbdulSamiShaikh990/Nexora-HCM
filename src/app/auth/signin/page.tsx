@@ -13,6 +13,7 @@ export default function SignInPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const router = useRouter();
   const searchParams = useSearchParams();
   const callbackUrl = searchParams.get("callbackUrl");
@@ -57,15 +58,8 @@ export default function SignInPage() {
   // Google sign-in removed per request
 
   return (
-    <div className="w-full max-w-md">
-      {/* Mobile Logo - Only show on small screens */}
-      <div className="lg:hidden text-center mb-8">
-        <img src="/logo.png" alt="Nexora HCM" className="h-16 mx-auto mb-4" />
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Nexora HCM</h1>
-        <p className="text-sm text-gray-600 dark:text-gray-400 mt-2">Human Capital Management System</p>
-      </div>
-
-      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-6 sm:p-8 border border-gray-200 dark:border-gray-700">
+    <div className="w-full">
+      <div className="bg-white/95 dark:bg-gray-800/95 backdrop-blur-sm rounded-2xl shadow-xl p-6 sm:p-8 border border-gray-200/50 dark:border-gray-700/50">
         <div className="text-center mb-6">
           <img src="/logo.png" alt="Nexora HCM" className="h-12 sm:h-16 mx-auto mb-3" />
           <h2 className="text-xl sm:text-2xl font-semibold mb-1 text-gray-900 dark:text-white">Login</h2>
@@ -106,13 +100,34 @@ export default function SignInPage() {
               </span>
               <input
                 id="password"
-                type="password"
+                type={showPassword ? "text" : "password"}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
                 placeholder="••••••••"
-                className="w-full pl-10 pr-4 py-3 border-2 border-gray-300 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
+                className="w-full pl-10 pr-12 py-3 border-2 border-gray-300 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
               />
+              <button
+                type="button"
+                onClick={() => setShowPassword((v) => !v)}
+                aria-label={showPassword ? "Hide password" : "Show password"}
+                title={showPassword ? "Hide password" : "Show password"}
+                className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+              >
+                {showPassword ? (
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M3 3l18 18" />
+                    <path d="M10.58 10.58A2 2 0 0 0 12 14a2 2 0 0 0 1.42-3.42" />
+                    <path d="M16.1 16.1A10.94 10.94 0 0 1 12 18c-5 0-9-4-10-6a11.86 11.86 0 0 1 5-5" />
+                    <path d="M17.94 13.94A11.86 11.86 0 0 0 22 12c-1-2-5-6-10-6a10.94 10.94 0 0 0-2.12.22" />
+                  </svg>
+                ) : (
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M1 12s4-6 11-6 11 6 11 6-4 6-11 6-11-6-11-6z" />
+                    <circle cx="12" cy="12" r="3" />
+                  </svg>
+                )}
+              </button>
             </div>
           </div>
 
