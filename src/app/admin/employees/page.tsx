@@ -28,34 +28,43 @@ type Employee = {
   documents?: Array<{ id: string; name: string; type: string; size: number; base64?: string; uploadedAt: string }>;
 };
 
-const STORAGE = "nexora_employees"; // no longer used for source of truth; kept to avoid wider refactor
+// const STORAGE = "nexora_employees"; // no longer used for source of truth; kept to avoid wider refactor
 const id = () => Math.random().toString(36).slice(2) + Date.now().toString(36);
 
 async function apiList(): Promise<Employee[]> {
   const res = await fetch("/api/employees", { cache: "no-store" });
   if (!res.ok) throw new Error("Failed to load employees");
   const arr = await res.json();
-  return (arr as any[]).map((e) => ({
-    id: String(e.id),
-    firstName: e.firstName,
-    lastName: e.lastName,
-    email: e.email,
-    jobTitle: e.jobTitle,
-    department: e.department,
-    status: (e.status as Status) ?? "Active",
-    joinDate: new Date(e.joinDate).toISOString().slice(0, 10),
-    phone: e.phone ?? "",
-    location: e.location ?? "",
-    performanceRating: e.performanceRating ?? undefined,
-    skills: e.skills ?? [],
-    certifications: e.certifications ?? [],
-    leaveBalance: e.leaveBalance ?? undefined,
-    salary: e.salary ?? undefined,
-    projects: e.projects ?? [],
-    feedback: e.feedback ?? "",
-    auditLog: (e.AuditLog ?? []).map((a: any) => ({ id: String(a.id), at: a.createdAt, by: a.by, action: a.action })),
-    documents: (e.Document ?? []).map((d: any) => ({ id: String(d.id), name: d.name, type: d.type, size: d.size, uploadedAt: d.uploadedAt })),
-  }));
+  return (arr as unknown[]).map((e: unknown) => {
+    const emp = e as Record<string, unknown>;
+    return {
+    id: String(emp.id),
+    firstName: emp.firstName as string,
+    lastName: emp.lastName as string,
+    email: emp.email as string,
+    jobTitle: emp.jobTitle as string,
+    department: emp.department as string,
+    status: (emp.status as Status) ?? "Active",
+    joinDate: new Date(emp.joinDate as string).toISOString().slice(0, 10),
+    phone: (emp.phone as string) ?? "",
+    location: (emp.location as string) ?? "",
+    performanceRating: (emp.performanceRating as number) ?? undefined,
+    skills: (emp.skills as string[]) ?? [],
+    certifications: (emp.certifications as string[]) ?? [],
+    leaveBalance: (emp.leaveBalance as number) ?? undefined,
+    salary: (emp.salary as number) ?? undefined,
+    projects: (emp.projects as string[]) ?? [],
+    feedback: (emp.feedback as string) ?? "",
+    auditLog: (emp.AuditLog as unknown[] ?? []).map((a: unknown) => {
+      const audit = a as Record<string, unknown>;
+      return { id: String(audit.id), at: audit.createdAt as string, by: audit.by as string, action: audit.action as string };
+    }),
+    documents: (emp.Document as unknown[] ?? []).map((d: unknown) => {
+      const doc = d as Record<string, unknown>;
+      return { id: String(doc.id), name: doc.name as string, type: doc.type as string, size: doc.size as number, uploadedAt: doc.uploadedAt as string };
+    }),
+    };
+  });
 }
 
 async function apiCreate(payload: Omit<Employee, "id"> & { password: string }) {
@@ -91,7 +100,7 @@ async function apiDelete(idNum: number) {
   if (!res.ok) throw new Error("Failed to delete employee");
 }
 
-const Glass = ({ children, className = "" }: { children: any; className?: string }) => (
+const Glass = ({ children, className = "" }: { children: React.ReactNode; className?: string }) => (
   <div className={`${S.glassCard} ${className}`}>{children}</div>
 );
 
@@ -192,7 +201,7 @@ export default function Page() {
   useEffect(() => { if (page > total) setPage(1); }, [total, page]);
 
   const openAdd = () => { setEditId(null); setForm(emptyForm); setErr(null); setShowForm(true); };
-  const openEdit = (e: Employee) => { const { id: _, ...rest } = e; setEditId(e.id); setForm({ ...emptyForm, ...rest }); setErr(null); setShowForm(true); };
+  const openEdit = (e: Employee) => { const { ...rest } = e; setEditId(e.id); setForm({ ...emptyForm, ...rest }); setErr(null); setShowForm(true); };
   const saveForm = async () => {
     if (!form.firstName || !form.lastName) return setErr("First & last name required");
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) return setErr("Valid email required");
@@ -204,7 +213,7 @@ export default function Page() {
     }
     try {
       if (editId && /^\d+$/.test(editId)) {
-        const { password: _pw, ...rest } = form;
+        const { ...rest } = form;
         await apiUpdate(Number(editId), rest);
       } else if (!editId) {
         await apiCreate({ ...(form as Required<FormState>), password: String(form.password) });
@@ -213,8 +222,9 @@ export default function Page() {
       }
       await refresh();
       setShowForm(false);
-    } catch (e: any) {
-      setErr(e?.message || "Failed to save");
+    } catch (e: unknown) {
+      const error = e as { message?: string };
+      setErr(error?.message || "Failed to save");
     }
   };
 
@@ -364,7 +374,7 @@ export default function Page() {
       });
       alert("Sync complete");
     } catch (e) {
-      alert("Failed to sync: " + (e as any)?.message);
+      alert("Failed to sync: " + (e as { message?: string })?.message);
     }
   };
 
@@ -375,7 +385,7 @@ export default function Page() {
       <div className="flex flex-col space-y-3 sm:space-y-0 sm:flex-row sm:items-center sm:justify-between gap-3">
         <div className="min-w-0 flex-1">
           <h1 className="text-xl sm:text-2xl lg:text-3xl font-semibold text-gray-900 tracking-tight truncate">Employee Management</h1>
-          <p className="mt-1 text-xs sm:text-sm text-gray-600">Manage your organization's workforce.</p>
+          <p className="mt-1 text-xs sm:text-sm text-gray-600">Manage your organization&apos;s workforce.</p>
         </div>
         <button onClick={openAdd} className="w-full sm:w-auto flex-shrink-0 inline-flex items-center justify-center gap-2 rounded-xl px-3 sm:px-4 py-2 sm:py-2.5 text-sm font-medium text-white bg-gradient-to-r from-indigo-600 to-violet-600 shadow hover:brightness-110 transition-all">
           <span className="text-base">＋</span> <span className="hidden xs:inline">Add Employee</span><span className="xs:hidden">Add</span>
@@ -393,7 +403,7 @@ export default function Page() {
             <select value={dept} onChange={e=>{setDept(e.target.value); setPage(1);}} className="w-full sm:w-auto rounded-xl border border-white/40 bg-white/80 backdrop-blur px-3 py-2.5 text-sm text-gray-900 min-w-0">
               {departments.map(d=> <option key={d} value={d}>{d}</option>)}
             </select>
-            <select value={stat} onChange={e=>{setStat(e.target.value as any); setPage(1);}} className="w-full sm:w-auto rounded-xl border border-white/40 bg-white/80 backdrop-blur px-3 py-2.5 text-sm text-gray-900 min-w-0">
+            <select value={stat} onChange={e=>{setStat(e.target.value as "All" | Status); setPage(1);}} className="w-full sm:w-auto rounded-xl border border-white/40 bg-white/80 backdrop-blur px-3 py-2.5 text-sm text-gray-900 min-w-0">
               {(["All","Active","On Leave","Inactive"] as const).map((s)=> <option key={s} value={s}>{s}</option>)}
             </select>
             <button onClick={()=>setAdvOpen(v=>!v)} className={`${S.advButton} w-full sm:w-auto whitespace-nowrap`}>{advOpen?"Hide Filters":"⚙ Advanced"}</button>
@@ -642,13 +652,13 @@ function Th({ label, onClick, active, dir }: { label: string; onClick: () => voi
   );
 }
 
-function IconButton({ title, onClick, danger, children }: { title: string; onClick: () => void; danger?: boolean; children: any }) {
+function IconButton({ title, onClick, danger, children }: { title: string; onClick: () => void; danger?: boolean; children: React.ReactNode }) {
   return (
     <button title={title} onClick={onClick} className={`${S.iconButton} ${danger?"text-rose-600":""}`}>{children}</button>
   );
 }
 
-function Modal({ title, onClose, children, wide }: { title: string; onClose: () => void; children: any; wide?: boolean }) {
+function Modal({ title, onClose, children, wide }: { title: string; onClose: () => void; children: React.ReactNode; wide?: boolean }) {
   useEffect(() => {
     const onEsc = (e: KeyboardEvent) => e.key === "Escape" && onClose();
     window.addEventListener("keydown", onEsc);

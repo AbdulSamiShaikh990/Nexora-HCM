@@ -353,7 +353,7 @@ export default function Page() {
                     <select
                       className="h-9 rounded-md border border-gray-300 px-3 text-sm bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                       value={department}
-                      onChange={(e) => setDepartment(e.target.value as any)}
+                      onChange={(e) => setDepartment(e.target.value as "all" | "engineering" | "marketing" | "sales" | "hr")}
                     >
                       <option value="all">All Departments</option>
                       <option value="engineering">Engineering</option>
@@ -429,7 +429,7 @@ export default function Page() {
                               {deltas.ot > 0 ? <Badge color="blue">{otStr}</Badge> : <span className="text-gray-400">-</span>}
                             </td>
                             <td className="px-2 sm:px-4 py-2 sm:py-3 whitespace-nowrap text-xs sm:text-sm text-gray-700">
-                              <Badge color={statusColor as any}>{row.status}</Badge>
+                              <Badge color={statusColor as "green" | "orange" | "red"}>{row.status}</Badge>
                             </td>
                           </tr>
                         );

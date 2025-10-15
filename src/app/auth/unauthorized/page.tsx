@@ -2,8 +2,9 @@
 
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
+import { Suspense } from "react";
 
-export default function UnauthorizedPage() {
+function UnauthorizedContent() {
   const searchParams = useSearchParams();
   const requiredRole = searchParams.get("role");
 
@@ -64,5 +65,13 @@ export default function UnauthorizedPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function UnauthorizedPage() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <UnauthorizedContent />
+    </Suspense>
   );
 }

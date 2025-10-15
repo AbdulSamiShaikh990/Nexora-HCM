@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import bcrypt from "bcryptjs";
+import { Role } from "@prisma/client";
 
 export async function POST(req: Request) {
   try {
@@ -37,13 +38,13 @@ export async function POST(req: Request) {
         email: String(email).toLowerCase(),
         password: hashed,
         name: name ? String(name) : null,
-        role: roleEnum as any,
+        role: roleEnum as Role,
       },
       select: { id: true, email: true, name: true, role: true },
     });
 
     return NextResponse.json(user, { status: 201 });
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error("Create user error:", err);
     return NextResponse.json(
       { error: "Internal Server Error" },
