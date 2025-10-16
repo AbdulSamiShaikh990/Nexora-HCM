@@ -4,6 +4,36 @@ import CredentialsProvider from "next-auth/providers/credentials";
 import { prisma } from "@/lib/db";
 import bcrypt from "bcryptjs";
 
+interface AuthUser {
+  id: string;
+  email: string | null;
+  name: string | null;
+  role: "admin" | "employee";
+}
+
+interface ExtendedUser {
+  id: string;
+  email?: string | null;
+  name?: string | null;
+  role?: "admin" | "employee";
+}
+
+interface ExtendedToken {
+  id?: string;
+  email?: string | null;
+  role?: "admin" | "employee" | null;
+}
+
+interface ExtendedSession {
+  expires: string;
+  user?: {
+    id?: string;
+    email?: string | null;
+    name?: string | null;
+    role?: "admin" | "employee" | null;
+  };
+}
+
 export const authOptions: NextAuthOptions = {
   session: { strategy: "jwt" },
   providers: [
@@ -34,7 +64,7 @@ export const authOptions: NextAuthOptions = {
           email: user.email,
           name: user.name,
           role: user.role === "ADMIN" ? "admin" : "employee",
-        } as any;
+        } as AuthUser;
       },
     }),
     GoogleProvider({
@@ -54,11 +84,12 @@ export const authOptions: NextAuthOptions = {
       const dbUser = await prisma.user.findUnique({ where: { email: user.email.toLowerCase() } });
       return !!dbUser;
     },
-    async jwt({ token, user, account }) {
+    async jwt({ token, user }) {
       if (user) {
-        token.id = (user as any).id;
+        const extendedUser = user as ExtendedUser;
+        token.id = extendedUser.id;
         token.email = user.email;
-        token.role = (user as any).role ?? token.role;
+        token.role = extendedUser.role ?? (token.role as "admin" | "employee" | null);
       }
       // If role still missing (Google path), fetch once
       if (!token.role && token.email) {
@@ -68,12 +99,14 @@ export const authOptions: NextAuthOptions = {
       return token;
     },
     async session({ session, token }) {
-      if (session.user) {
-        (session.user as any).id = token.id as string;
-        session.user.email = token.email as string;
-        (session.user as any).role = (token.role as string) ?? null;
+      const extendedSession = session as ExtendedSession;
+      const extendedToken = token as ExtendedToken;
+      if (extendedSession.user) {
+        extendedSession.user.id = extendedToken.id as string;
+        extendedSession.user.email = extendedToken.email as string;
+        extendedSession.user.role = extendedToken.role ?? null;
       }
-      return session;
+      return extendedSession;
     },
   },
 };

@@ -1,14 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { useState, Suspense } from "react";
 import { signIn } from "next-auth/react";
-import { useRouter } from "next/navigation";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
+import Image from "next/image";
 import { getDashboardUrl } from "@/lib/helpers";
 import { UserRole } from "@/types/auth";
 
-export default function SignInPage() {
+function SignInContent() {
   const [isLoading, setIsLoading] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -61,7 +61,7 @@ export default function SignInPage() {
     <div className="w-full">
       <div className="bg-white/95 dark:bg-gray-800/95 backdrop-blur-sm rounded-2xl shadow-xl p-6 sm:p-8 border border-gray-200/50 dark:border-gray-700/50">
         <div className="text-center mb-6">
-          <img src="/logo.png" alt="Nexora HCM" className="h-12 sm:h-16 mx-auto mb-3" />
+          <Image src="/logo.png" alt="Nexora HCM" width={64} height={64} className="mx-auto mb-3" />
           <h2 className="text-xl sm:text-2xl font-semibold mb-1 text-gray-900 dark:text-white">Login</h2>
           <p className="text-sm text-gray-600 dark:text-gray-400">Enter your credentials</p>
         </div>
@@ -165,5 +165,13 @@ export default function SignInPage() {
         <p>© 2024 Nexora HCM. All rights reserved.</p>
       </div>
     </div>
+  );
+}
+
+export default function SignInPage() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <SignInContent />
+    </Suspense>
   );
 }

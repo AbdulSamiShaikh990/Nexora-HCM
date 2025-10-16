@@ -3,15 +3,7 @@ import bcrypt from "bcryptjs";
 
 const prisma = new PrismaClient();
 
-// Type assertion to handle Prisma client model access
-type PrismaWithUser = PrismaClient & {
-  user: {
-    create: (args: any) => Promise<any>;
-    findUnique: (args: any) => Promise<any>;
-  };
-};
-
-const typedPrisma = prisma as PrismaWithUser;
+// Use Prisma client directly - it has proper types
 
 async function createUser() {
   const email = process.argv[2];
@@ -28,7 +20,7 @@ async function createUser() {
     const hashedPassword = await bcrypt.hash(password, 10);
 
     // Create the user
-    const user = await typedPrisma.user.create({
+    const user = await prisma.user.create({
       data: {
         email: email.toLowerCase(),
         password: hashedPassword,
@@ -40,14 +32,15 @@ async function createUser() {
     console.log("Email:", user.email);
     console.log("Name:", user.name);
     console.log("\nYou can now sign in with these credentials.");
-  } catch (error: any) {
-    if (error.code === "P2002") {
+  } catch (error: unknown) {
+    const err = error as { code?: string; message?: string };
+    if (err.code === "P2002") {
       console.error("❌ Error: A user with this email already exists.");
     } else {
-      console.error("❌ Error creating user:", error.message);
+      console.error("❌ Error creating user:", err.message || "Unknown error");
     }
   } finally {
-    await typedPrisma.$disconnect();
+    await prisma.$disconnect();
   }
 }
 

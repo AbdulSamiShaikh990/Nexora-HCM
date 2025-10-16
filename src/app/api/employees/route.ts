@@ -1,6 +1,21 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import bcrypt from "bcryptjs";
+import { Role } from "@prisma/client";
+
+interface DocumentInput {
+  name?: string;
+  type?: string;
+  size?: number;
+  base64?: string;
+  uploadedAt?: string;
+}
+
+interface AuditLogInput {
+  action?: string;
+  by?: string;
+  at?: string;
+}
 
 // GET /api/employees -> list all employees
 export async function GET() {
@@ -86,7 +101,7 @@ export async function POST(req: Request) {
         updatedAt: now,
         // Nested writes for documents and audit logs if provided
         Document: Array.isArray(documents) && documents.length > 0 ? {
-          create: documents.map((d: any) => ({
+          create: documents.map((d: DocumentInput) => ({
             name: String(d.name ?? "file"),
             type: String(d.type ?? "file"),
             size: Number(d.size ?? 0),
@@ -99,7 +114,7 @@ export async function POST(req: Request) {
             { action: "Created", by: "Admin", createdAt: now },
             ...(
               Array.isArray(auditLog)
-                ? auditLog.map((a: any) => ({
+                ? auditLog.map((a: AuditLogInput) => ({
                     action: String(a.action ?? "Created"),
                     by: String(a.by ?? "Admin"),
                     createdAt: a.at ? new Date(a.at) : now,
@@ -118,13 +133,13 @@ export async function POST(req: Request) {
       where: { email: String(email).toLowerCase() },
       update: {
         name: `${String(firstName)} ${String(lastName)}`.trim(),
-        role: "EMPLOYEE" as any,
+        role: Role.EMPLOYEE,
         password: hashed,
       },
       create: {
         email: String(email).toLowerCase(),
         name: `${String(firstName)} ${String(lastName)}`.trim(),
-        role: "EMPLOYEE" as any,
+        role: Role.EMPLOYEE,
         password: hashed,
       },
     });

@@ -1,9 +1,48 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 
-export async function GET(_: Request, { params }: { params: { id: string } }) {
+interface DocumentInput {
+  name?: string;
+  type?: string;
+  size?: number;
+  base64?: string;
+  uploadedAt?: string;
+}
+
+interface EmployeeUpdateData {
+  firstName?: string;
+  lastName?: string;
+  email?: string;
+  jobTitle?: string;
+  department?: string;
+  status?: string;
+  joinDate?: Date;
+  phone?: string | null;
+  location?: string | null;
+  performanceRating?: number | null;
+  skills?: string[];
+  certifications?: string[];
+  leaveBalance?: number | null;
+  salary?: number | null;
+  projects?: string[];
+  feedback?: string | null;
+  updatedAt?: Date;
+  Document?: {
+    deleteMany: Record<string, never>;
+    create: {
+      name: string;
+      type: string;
+      size: number;
+      base64: string | null;
+      uploadedAt: Date;
+    }[];
+  };
+}
+
+export async function GET(_: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const id = Number(params.id);
+    const { id: idParam } = await params;
+    const id = Number(idParam);
     if (!Number.isFinite(id)) return NextResponse.json({ error: "Invalid id" }, { status: 400 });
 
     const emp = await prisma.employee.findUnique({
@@ -18,15 +57,16 @@ export async function GET(_: Request, { params }: { params: { id: string } }) {
   }
 }
 
-export async function PATCH(req: Request, { params }: { params: { id: string } }) {
+export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const id = Number(params.id);
+    const { id: idParam } = await params;
+    const id = Number(idParam);
     if (!Number.isFinite(id)) return NextResponse.json({ error: "Invalid id" }, { status: 400 });
     const body = await req.json();
 
     const now = new Date();
 
-    const data: any = {};
+    const data: EmployeeUpdateData = {};
     if (body.firstName != null) data.firstName = String(body.firstName);
     if (body.lastName != null) data.lastName = String(body.lastName);
     if (body.email != null) data.email = String(body.email).toLowerCase();
@@ -49,7 +89,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     if (Array.isArray(body.documents)) {
       data.Document = {
         deleteMany: {},
-        create: body.documents.map((d: any) => ({
+        create: body.documents.map((d: DocumentInput) => ({
           name: String(d.name ?? "file"),
           type: String(d.type ?? "file"),
           size: Number(d.size ?? 0),
@@ -71,8 +111,9 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     });
 
     return NextResponse.json(updated, { status: 200 });
-  } catch (err: any) {
-    if (err?.code === "P2002") {
+  } catch (err: unknown) {
+    const error = err as { code?: string };
+    if (error?.code === "P2002") {
       return NextResponse.json({ error: "Email already exists" }, { status: 409 });
     }
     console.error("Employee PATCH error:", err);
@@ -80,9 +121,10 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
   }
 }
 
-export async function DELETE(_: Request, { params }: { params: { id: string } }) {
+export async function DELETE(_: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const id = Number(params.id);
+    const { id: idParam } = await params;
+    const id = Number(idParam);
     if (!Number.isFinite(id)) return NextResponse.json({ error: "Invalid id" }, { status: 400 });
 
     // Get employee email before delete
@@ -95,15 +137,17 @@ export async function DELETE(_: Request, { params }: { params: { id: string } })
     if (emp.email) {
       try {
         await prisma.user.delete({ where: { email: emp.email.toLowerCase() } });
-      } catch (e: any) {
+      } catch (e: unknown) {
         // ignore if user does not exist
-        if (e?.code !== "P2025") throw e;
+        const error = e as { code?: string };
+        if (error?.code !== "P2025") throw e;
       }
     }
 
     return NextResponse.json({ ok: true }, { status: 200 });
-  } catch (err: any) {
-    if (err?.code === "P2025") {
+  } catch (err: unknown) {
+    const error = err as { code?: string };
+    if (error?.code === "P2025") {
       return NextResponse.json({ error: "Not found" }, { status: 404 });
     }
     console.error("Employee DELETE error:", err);

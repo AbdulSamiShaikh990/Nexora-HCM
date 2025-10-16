@@ -1,31 +1,62 @@
 // Prisma client type extensions
-import { PrismaClient } from "@prisma/client";
+import type { 
+  PrismaClient, 
+  Employee, 
+  User, 
+  AuditLog, 
+  Document, 
+  Attendance, 
+  Leave, 
+  Payroll,
+  Role 
+} from "@prisma/client";
 
-// Extend the PrismaClient type to include the user model
-declare global {
-  namespace PrismaNamespace {
-    interface PrismaClient {
-      user: {
-        create: (args: any) => Promise<any>;
-        findUnique: (args: any) => Promise<any>;
-        findMany: (args: any) => Promise<any>;
-        update: (args: any) => Promise<any>;
-        delete: (args: any) => Promise<any>;
-      };
-    }
-  }
+// Export commonly used types
+export type {
+  Employee,
+  User,
+  AuditLog,
+  Document,
+  Attendance,
+  Leave,
+  Payroll,
+  Role,
+  PrismaClient
+};
+
+// Employee with relations
+export type EmployeeWithRelations = Employee & {
+  AuditLog: AuditLog[];
+  Document: Document[];
+  attendance?: Attendance[];
+  leaves?: Leave[];
+  payrolls?: Payroll[];
+};
+
+// User creation input
+export interface UserCreateInput {
+  email: string;
+  password: string;
+  name?: string | null;
+  role?: Role;
 }
 
-// Create a typed Prisma client
-export const createTypedPrismaClient = () => {
-  const prisma = new PrismaClient();
-  return prisma as PrismaClient & {
-    user: {
-      create: (args: any) => Promise<any>;
-      findUnique: (args: any) => Promise<any>;
-      findMany: (args: any) => Promise<any>;
-      update: (args: any) => Promise<any>;
-      delete: (args: any) => Promise<any>;
-    };
-  };
-};
+// Employee creation input
+export interface EmployeeCreateInput {
+  firstName: string;
+  lastName: string;
+  email: string;
+  jobTitle: string;
+  department: string;
+  status?: string;
+  joinDate?: Date;
+  phone?: string | null;
+  location?: string | null;
+  performanceRating?: number | null;
+  skills?: string[];
+  certifications?: string[];
+  leaveBalance?: number | null;
+  salary?: number | null;
+  projects?: string[];
+  feedback?: string | null;
+}

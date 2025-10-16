@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("");
@@ -19,7 +20,7 @@ export default function ForgotPasswordPage() {
       // TODO: Implement forgot password logic
       await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate API call
       setMessage("Password reset link has been sent to your email address.");
-    } catch (error) {
+    } catch {
       setError("Failed to send reset email. Please try again.");
     } finally {
       setIsLoading(false);
@@ -30,14 +31,14 @@ export default function ForgotPasswordPage() {
     <div className="w-full max-w-md">
       {/* Mobile Logo - Only show on small screens */}
       <div className="lg:hidden text-center mb-8">
-        <img src="/logo.png" alt="Nexora HCM" className="h-16 mx-auto mb-4" />
+        <Image src="/logo.png" alt="Nexora HCM" width={64} height={64} className="mx-auto mb-4" />
         <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Nexora HCM</h1>
         <p className="text-sm text-gray-600 dark:text-gray-400 mt-2">Human Capital Management System</p>
       </div>
 
       <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-6 sm:p-8 border border-gray-200 dark:border-gray-700">
         <div className="text-center mb-6">
-          <img src="/logo.png" alt="Nexora HCM" className="h-12 sm:h-16 mx-auto mb-3" />
+          <Image src="/logo.png" alt="Nexora HCM" width={64} height={64} className="mx-auto mb-3" />
           <h2 className="text-xl sm:text-2xl font-semibold mb-1 text-gray-900 dark:text-white">Forgot Password</h2>
           <p className="text-sm text-gray-600 dark:text-gray-400">Enter your email to reset your password</p>
         </div>
