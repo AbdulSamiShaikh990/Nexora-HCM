@@ -35,5 +35,9 @@
     "tailwindcss": "^4",
     "ts-node": "^10.9.2",
     "typescript": "^5"
+  },
+  "generate": {
+    "0": true,
+    "1": true
   }
 }
