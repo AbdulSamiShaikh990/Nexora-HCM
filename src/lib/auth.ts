@@ -1,10 +1,12 @@
-import { getServerSession, type NextAuthOptions } from "next-auth";
+import { getServerSession, type NextAuthOptions, type Session, type User } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import GoogleProvider from "next-auth/providers/google";
 import { prisma } from "@/lib/db";
 import bcrypt from "bcryptjs";
+import type { JWT } from "next-auth/jwt";
 
-// … your interfaces stay the same …
+// Local helper types for convenience (avoid undefined names)
+type AppUser = User & { id: string; role?: "admin" | "employee" | null };
 
 export const authOptions: NextAuthOptions = {
   // ✅ FIX: provide secret (works for v4 and v5/beta)
@@ -32,12 +34,13 @@ export const authOptions: NextAuthOptions = {
         const ok = await bcrypt.compare(credentials.password, user.password);
         if (!ok) throw new Error("Invalid email or password");
 
-        return {
+        const authUser: AppUser = {
           id: user.id,
-          email: user.email,
-          name: user.name,
+          email: user.email ?? undefined,
+          name: user.name ?? undefined,
           role: user.role === "ADMIN" ? "admin" : "employee",
-        } as AuthUser;
+        };
+        return authUser as unknown as User;
       },
     }),
 
@@ -68,10 +71,10 @@ export const authOptions: NextAuthOptions = {
     },
     async jwt({ token, user }) {
       if (user) {
-        const u = user as ExtendedUser;
-        token.id = u.id;
-        token.email = user.email;
-        token.role = u.role ?? (token.role as "admin" | "employee" | null);
+        const u = user as AppUser;
+        (token as JWT).id = u.id;
+        token.email = u.email;
+        (token as JWT).role = u.role ?? ((token as JWT).role ?? null);
       }
       if (!token.role && token.email) {
         const dbUser = await prisma.user.findUnique({
@@ -82,12 +85,14 @@ export const authOptions: NextAuthOptions = {
       return token;
     },
     async session({ session, token }) {
-      const s = session as ExtendedSession;
-      const t = token as ExtendedToken;
+      const s = session as Session;
+      const t = token as JWT & { email?: string | null };
       if (s.user) {
-        s.user.id = t.id as string;
-        s.user.email = t.email as string;
-        s.user.role = t.role ?? null;
+        (s.user as unknown as { id?: string }).id = t.id as string;
+        // NextAuth's Session.user.email is typed as string | null | undefined depending on version.
+        // Cast to string to satisfy lint while we always set a string from JWT when present.
+        s.user.email = (t.email ?? "") as unknown as string;
+        (s.user as unknown as { role?: "admin" | "employee" | null }).role = t.role ?? null;
       }
       return s;
     },
