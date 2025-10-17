@@ -28,6 +28,15 @@ type SelfServiceItem = {
   state?: "pending" | "approved" | "rejected";
 };
 
+type LiveRow = {
+  id: number;
+  employee: string;
+  department: string;
+  checkIn?: string;
+  checkOut?: string;
+  status: AttendanceStatus;
+};
+
 // Helpers
 function parse12hToMinutes(t: string): number | undefined {
   const s = t?.trim();
@@ -76,76 +85,6 @@ function computeDeltas(
   const total = inM != null && outM != null ? Math.max(0, outM - inM) : 0;
   return { late, early, ot, total };
 }
-
-// Mock data (demo only)
-const demoAttendance: AttendanceRecord[] = [
-  {
-    id: 1,
-    employee: "Sarah Johnson",
-    department: "engineering",
-    date: "2025-10-08",
-    checkIn: "08:15 AM",
-    checkOut: "06:30 PM",
-    status: "Present",
-  },
-  {
-    id: 2,
-    employee: "Michael Chen",
-    department: "marketing",
-    date: "2025-10-08",
-    checkIn: "08:45 AM",
-    checkOut: "05:45 PM",
-    status: "Present",
-  },
-  {
-    id: 3,
-    employee: "Emily Rodriguez",
-    department: "sales",
-    date: "2025-10-08",
-    checkIn: "09:30 AM",
-    checkOut: "06:15 PM",
-    status: "Present",
-  },
-  {
-    id: 4,
-    employee: "David Kim",
-    department: "engineering",
-    date: "2025-10-08",
-    checkIn: "-",
-    checkOut: "-",
-    status: "Absent",
-  },
-  {
-    id: 5,
-    employee: "Lisa Thompson",
-    department: "hr",
-    date: "2025-10-08",
-    checkIn: "08:30 AM",
-    checkOut: "05:30 PM",
-    status: "Present",
-  },
-];
-
-const demoRequests: SelfServiceItem[] = [
-  {
-    id: "r1",
-    employee: "David Kim",
-    date: "2025-10-08",
-    issue: "Missed check-in",
-    requestedCheckIn: "09:05 AM",
-    note: "Was on a client call during commute.",
-    state: "pending",
-  },
-  {
-    id: "r2",
-    employee: "Emily Rodriguez",
-    date: "2025-10-08",
-    issue: "Wrong check-out",
-    requestedCheckOut: "06:45 PM",
-    note: "Worked late for a handoff.",
-    state: "pending",
-  },
-];
 
 // Simple UI atoms (no external UI library)
 function Card({ children, className = "" }: React.PropsWithChildren<{ className?: string }>) {
@@ -226,36 +165,205 @@ export default function Page() {
   // Department filter
   const [department, setDepartment] = React.useState<"all" | "engineering" | "marketing" | "sales" | "hr">("all");
 
-  // Self-service items state
-  const [requests, setRequests] = React.useState<SelfServiceItem[]>(demoRequests);
+  // API Data States
+  const [dailyData, setDailyData] = React.useState<AttendanceRecord[]>([]);
+  const [requests, setRequests] = React.useState<SelfServiceItem[]>([]);
+  const [liveIn, setLiveIn] = React.useState<LiveRow[]>([]);
+  const [liveOut, setLiveOut] = React.useState<LiveRow[]>([]);
+  const [loading, setLoading] = React.useState(false);
+  const [error, setError] = React.useState<string | null>(null);
 
-  const dailyData = React.useMemo(() => {
-    const date = selectedDate;
-    const base = demoAttendance.filter((r) => r.date === date);
-    return department === "all" ? base : base.filter((r) => r.department === department);
+  // Stats from API
+  const [summary, setSummary] = React.useState({
+    present: 0,
+    late: 0,
+    absent: 0,
+    avgPer: 0,
+    avgHours: 0,
+  });
+
+  const [isFilterOpen, setIsFilterOpen] = React.useState<boolean>(false);
+  const [statusFilter, setStatusFilter] = React.useState<"all" | AttendanceStatus>("all");
+  const [isAssignOpen, setIsAssignOpen] = React.useState<boolean>(false);
+  const [assignStart, setAssignStart] = React.useState<string>(shiftStart);
+  const [assignEnd, setAssignEnd] = React.useState<string>(shiftEnd);
+
+  const loadAttendanceData = React.useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const params = new URLSearchParams({
+        date: selectedDate,
+        department,
+        shiftStart,
+        shiftEnd,
+      });
+      const response = await fetch(`/api/attendance?${params}`);
+      if (!response.ok) throw new Error("Failed to fetch attendance");
+      const result = await response.json();
+      setDailyData(result.data || []);
+    } catch (err) {
+      setError("Failed to load attendance data");
+      console.error(err);
+      setDailyData([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [selectedDate, department, shiftStart, shiftEnd]);
+
+  React.useEffect(() => {
+    if (tab === "shift" && showDaily) {
+      loadAttendanceData();
+    }
+  }, [tab, showDaily, loadAttendanceData]);
+
+  const loadStats = React.useCallback(async () => {
+    try {
+      const params = new URLSearchParams({
+        date: selectedDate,
+        department,
+        shiftStart,
+        shiftEnd,
+        mode: "stats",
+      });
+      const response = await fetch(`/api/attendance?${params}`);
+      if (!response.ok) throw new Error("Failed to fetch stats");
+      const result = await response.json();
+      setSummary({
+        present: result.present || 0,
+        late: result.late || 0,
+        absent: result.absent || 0,
+        avgPer: result.attendanceRate || 0,
+        avgHours: result.avgHours || 0,
+      });
+    } catch (err) {
+      console.error("Failed to load stats:", err);
+      setSummary({ present: 0, late: 0, absent: 0, avgPer: 0, avgHours: 0 });
+    }
+  }, [selectedDate, department, shiftStart, shiftEnd]);
+
+  React.useEffect(() => {
+    loadStats();
+  }, [loadStats]);
+
+  // Fetch correction requests
+  const loadCorrectionRequests = React.useCallback(async () => {
+    try {
+      setLoading(true);
+      const params = new URLSearchParams({ state: "pending" });
+      if (department !== "all") params.append("department", department);
+      const response = await fetch(`/api/attendance/requests?${params}`);
+      if (!response.ok) throw new Error("Failed to fetch requests");
+      const result = await response.json();
+      setRequests(result.data || []);
+    } catch (err) {
+      setError("Failed to load correction requests");
+      console.error(err);
+      setRequests([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [department]);
+
+  React.useEffect(() => {
+    if (tab === "self") {
+      loadCorrectionRequests();
+    }
+  }, [tab, loadCorrectionRequests]);
+
+  // Fetch live status
+  const loadLiveStatus = React.useCallback(async () => {
+    try {
+      setLoading(true);
+      const params = new URLSearchParams({
+        date: selectedDate,
+        department,
+        mode: "live",
+      });
+      const response = await fetch(`/api/attendance?${params}`);
+      if (!response.ok) throw new Error("Failed to fetch live status");
+      const result = await response.json();
+      setLiveIn(result.in || []);
+      setLiveOut(result.out || []);
+    } catch (err) {
+      setError("Failed to load live status");
+      console.error(err);
+      setLiveIn([]);
+      setLiveOut([]);
+    } finally {
+      setLoading(false);
+    }
   }, [selectedDate, department]);
 
-  const summary = React.useMemo(() => {
-    const total = dailyData.length;
-    const present = dailyData.filter((d) => d.status !== "Absent").length;
-    const late = dailyData.filter((d) => d.status === "Late").length;
-    const absent = dailyData.filter((d) => d.status === "Absent").length;
-    const avgMinutes = dailyData.reduce((acc, d) => {
-      const { total } = computeDeltas(d.checkIn, d.checkOut, shiftStart, shiftEnd);
-      return acc + total;
-    }, 0);
-    const avgPer = total ? Math.round((present / total) * 1000) / 10 : 0;
-    const avgHours = total ? Math.round((avgMinutes / total / 60) * 10) / 10 : 0;
-    return { present, late, absent, avgPer, avgHours };
-  }, [dailyData, shiftStart, shiftEnd]);
+  React.useEffect(() => {
+    if (tab === "live") {
+      loadLiveStatus();
+    }
+  }, [tab, loadLiveStatus]);
 
-  const liveIn = dailyData.filter((d) => d.status !== "Absent");
-  const liveOut = dailyData.filter((d) => d.status === "Absent");
+  
+
+  const handleApprove = async (id: number) => {
+    try {
+      const response = await fetch(`/api/attendance/requests?id=${id}`, {
+        method: "PUT",
+      });
+      if (!response.ok) throw new Error("Failed to approve");
+      alert("Request approved successfully");
+      await loadCorrectionRequests();
+      await loadAttendanceData();
+    } catch (err) {
+      alert("Failed to approve request");
+      console.error(err);
+    }
+  };
+
+  const handleReject = async (id: number) => {
+    try {
+      const response = await fetch(`/api/attendance/requests?id=${id}`, {
+        method: "DELETE",
+      });
+      if (!response.ok) throw new Error("Failed to reject");
+      alert("Request rejected successfully");
+      await loadCorrectionRequests();
+    } catch (err) {
+      alert("Failed to reject request");
+      console.error(err);
+    }
+  };
 
   const handleApplyDate = () => {
-    setSelectedDate(tempDate);
+    const finalDate = tempDate > todayIso ? todayIso : tempDate;
+    setSelectedDate(finalDate);
     setIsDateDialogOpen(false);
     setShowDaily(true);
+  };
+
+  // Export handlers
+  
+
+  const handleExportExcel = async () => {
+    try {
+      const params = new URLSearchParams({ date: selectedDate, department, format: "excel" });
+      const url = `/api/attendance?${params}`;
+      const res = await fetch(url);
+      if (!res.ok) throw new Error("Export Excel failed");
+      const blob = await res.blob();
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(blob);
+      link.download = `attendance-${selectedDate}.xls`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+    } catch (e) {
+      alert("Failed to export Excel");
+      console.error(e);
+    }
+  };
+
+  const handleExportPDF = () => {
+    // Simple printable view for now; real PDF can be added later with a lib
+    window.print();
   };
 
   return (
@@ -268,8 +376,8 @@ export default function Page() {
           <p className="text-xs sm:text-sm text-gray-600">Monitor employee attendance and working hours</p>
         </div>
         <div className="flex flex-wrap gap-1.5 sm:gap-2">
-          <ToolbarButton variant="ghost" onClick={() => alert("Export PDF (placeholder)")}>Export PDF</ToolbarButton>
-          <ToolbarButton variant="ghost" onClick={() => alert("Export Excel (placeholder)")}>Export Excel</ToolbarButton>
+          <ToolbarButton variant="ghost" onClick={handleExportPDF}>Export PDF</ToolbarButton>
+          <ToolbarButton variant="ghost" onClick={handleExportExcel}>Export Excel</ToolbarButton>
         </div>
       </div>
 
@@ -326,6 +434,19 @@ export default function Page() {
         </div>
       </div>
 
+      {/* Loading & Error */}
+      {loading && (
+        <div className="mt-4 text-center py-4">
+          <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+          <p className="mt-2 text-sm text-gray-600">Loading...</p>
+        </div>
+      )}
+      {error && (
+        <div className="mt-4 bg-red-50 border border-red-200 rounded-lg p-4">
+          <p className="text-sm text-red-800">{error}</p>
+        </div>
+      )}
+
       {/* Top toolbar */}
       <div className="mt-3 sm:mt-4 flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
         <div className="flex items-center gap-2">
@@ -362,8 +483,8 @@ export default function Page() {
                       <option value="hr">HR</option>
                     </select>
                     <ToolbarButton onClick={() => setIsDateDialogOpen(true)}>Change Date</ToolbarButton>
-                    <ToolbarButton onClick={() => alert("Filter dialog (placeholder)")}>Filter</ToolbarButton>
-                    <ToolbarButton variant="primary" onClick={() => alert("Assign Shifts (placeholder)")}>Assign Shifts</ToolbarButton>
+                    <ToolbarButton onClick={() => setIsFilterOpen(true)}>Filter</ToolbarButton>
+                    <ToolbarButton variant="primary" onClick={() => { setAssignStart(shiftStart); setAssignEnd(shiftEnd); setIsAssignOpen(true); }}>Assign Shifts</ToolbarButton>
                   </div>
                 </div>
 
@@ -393,48 +514,50 @@ export default function Page() {
                 <div className="mt-4 sm:mt-6 -mx-2 sm:mx-0">
                   <div className="overflow-x-auto">
                     <table className="min-w-full divide-y divide-gray-200 text-xs sm:text-sm">
-                    <thead className="bg-gray-50">
-                      <tr>
-                        <th className="px-2 sm:px-4 py-2 sm:py-3 text-left text-[10px] sm:text-xs font-medium text-gray-600 uppercase tracking-wider">Employee</th>
-                        <th className="px-2 sm:px-4 py-2 sm:py-3 text-left text-[10px] sm:text-xs font-medium text-gray-600 uppercase tracking-wider">Check In</th>
-                        <th className="px-2 sm:px-4 py-2 sm:py-3 text-left text-[10px] sm:text-xs font-medium text-gray-600 uppercase tracking-wider">Check Out</th>
-                        <th className="px-2 sm:px-4 py-2 sm:py-3 text-left text-[10px] sm:text-xs font-medium text-gray-600 uppercase tracking-wider hidden md:table-cell">Total Hours</th>
-                        <th className="px-2 sm:px-4 py-2 sm:py-3 text-left text-[10px] sm:text-xs font-medium text-gray-600 uppercase tracking-wider hidden md:table-cell">Late</th>
-                        <th className="px-2 sm:px-4 py-2 sm:py-3 text-left text-[10px] sm:text-xs font-medium text-gray-600 uppercase tracking-wider hidden lg:table-cell">Early Dep.</th>
-                        <th className="px-2 sm:px-4 py-2 sm:py-3 text-left text-[10px] sm:text-xs font-medium text-gray-600 uppercase tracking-wider hidden lg:table-cell">Overtime</th>
-                        <th className="px-2 sm:px-4 py-2 sm:py-3 text-left text-[10px] sm:text-xs font-medium text-gray-600 uppercase tracking-wider">Status</th>
-                      </tr>
-                    </thead>
-                    <tbody className="bg-white divide-y divide-gray-100">
-                      {dailyData.map((row) => {
-                        const deltas = computeDeltas(row.checkIn, row.checkOut, shiftStart, shiftEnd);
-                        const statusColor = row.status === "Present" ? "green" : row.status === "Late" ? "orange" : "red";
-                        const totalStr = minutesToHm(deltas.total);
-                        const lateStr = minutesToHm(deltas.late);
-                        const earlyStr = minutesToHm(deltas.early);
-                        const otStr = minutesToHm(deltas.ot);
-                        return (
-                          <tr key={row.id} className="hover:bg-gray-50">
-                            <td className="px-2 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm text-gray-900 max-w-[100px] sm:max-w-[160px] truncate">{row.employee}</td>
-                            <td className="px-2 sm:px-4 py-2 sm:py-3 whitespace-nowrap text-xs sm:text-sm text-gray-900">{row.checkIn}</td>
-                            <td className="px-2 sm:px-4 py-2 sm:py-3 whitespace-nowrap text-xs sm:text-sm text-gray-900">{row.checkOut}</td>
-                            <td className="px-2 sm:px-4 py-2 sm:py-3 whitespace-nowrap text-xs sm:text-sm text-gray-900 hidden md:table-cell">{totalStr}</td>
-                            <td className="px-2 sm:px-4 py-2 sm:py-3 whitespace-nowrap text-xs sm:text-sm text-gray-700 hidden md:table-cell">
-                              {deltas.late > 0 ? <Badge color="orange">{lateStr}</Badge> : <span className="text-gray-400">-</span>}
-                            </td>
-                            <td className="px-2 sm:px-4 py-2 sm:py-3 whitespace-nowrap text-xs sm:text-sm text-gray-700 hidden lg:table-cell">
-                              {deltas.early > 0 ? <Badge color="orange">{earlyStr}</Badge> : <span className="text-gray-400">-</span>}
-                            </td>
-                            <td className="px-2 sm:px-4 py-2 sm:py-3 whitespace-nowrap text-xs sm:text-sm text-gray-700 hidden lg:table-cell">
-                              {deltas.ot > 0 ? <Badge color="blue">{otStr}</Badge> : <span className="text-gray-400">-</span>}
-                            </td>
-                            <td className="px-2 sm:px-4 py-2 sm:py-3 whitespace-nowrap text-xs sm:text-sm text-gray-700">
-                              <Badge color={statusColor as "green" | "orange" | "red"}>{row.status}</Badge>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
+                      <thead className="bg-gray-50">
+                        <tr>
+                          <th className="px-2 sm:px-4 py-2 sm:py-3 text-left text-[10px] sm:text-xs font-medium text-gray-600 uppercase tracking-wider">Employee</th>
+                          <th className="px-2 sm:px-4 py-2 sm:py-3 text-left text-[10px] sm:text-xs font-medium text-gray-600 uppercase tracking-wider">Check In</th>
+                          <th className="px-2 sm:px-4 py-2 sm:py-3 text-left text-[10px] sm:text-xs font-medium text-gray-600 uppercase tracking-wider">Check Out</th>
+                          <th className="px-2 sm:px-4 py-2 sm:py-3 text-left text-[10px] sm:text-xs font-medium text-gray-600 uppercase tracking-wider hidden md:table-cell">Total Hours</th>
+                          <th className="px-2 sm:px-4 py-2 sm:py-3 text-left text-[10px] sm:text-xs font-medium text-gray-600 uppercase tracking-wider hidden md:table-cell">Late</th>
+                          <th className="px-2 sm:px-4 py-2 sm:py-3 text-left text-[10px] sm:text-xs font-medium text-gray-600 uppercase tracking-wider hidden lg:table-cell">Early Dep.</th>
+                          <th className="px-2 sm:px-4 py-2 sm:py-3 text-left text-[10px] sm:text-xs font-medium text-gray-600 uppercase tracking-wider hidden lg:table-cell">Overtime</th>
+                          <th className="px-2 sm:px-4 py-2 sm:py-3 text-left text-[10px] sm:text-xs font-medium text-gray-600 uppercase tracking-wider">Status</th>
+                        </tr>
+                      </thead>
+                      <tbody className="bg-white divide-y divide-gray-100">
+                        {dailyData
+                          .filter((row) => (statusFilter === "all" ? true : row.status === statusFilter))
+                          .map((row) => {
+                            const deltas = computeDeltas(row.checkIn, row.checkOut, shiftStart, shiftEnd);
+                            const statusColor = row.status === "Present" ? "green" : row.status === "Late" ? "orange" : "red";
+                            const totalStr = minutesToHm(deltas.total);
+                            const lateStr = minutesToHm(deltas.late);
+                            const earlyStr = minutesToHm(deltas.early);
+                            const otStr = minutesToHm(deltas.ot);
+                            return (
+                              <tr key={row.id} className="hover:bg-gray-50">
+                                <td className="px-2 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm text-gray-900 max-w-[100px] sm:max-w-[160px] truncate">{row.employee}</td>
+                                <td className="px-2 sm:px-4 py-2 sm:py-3 whitespace-nowrap text-xs sm:text-sm text-gray-900">{row.checkIn}</td>
+                                <td className="px-2 sm:px-4 py-2 sm:py-3 whitespace-nowrap text-xs sm:text-sm text-gray-900">{row.checkOut}</td>
+                                <td className="px-2 sm:px-4 py-2 sm:py-3 whitespace-nowrap text-xs sm:text-sm text-gray-900 hidden md:table-cell">{totalStr}</td>
+                                <td className="px-2 sm:px-4 py-2 sm:py-3 whitespace-nowrap text-xs sm:text-sm text-gray-700 hidden md:table-cell">
+                                  {deltas.late > 0 ? <Badge color="orange">{lateStr}</Badge> : <span className="text-gray-400">-</span>}
+                                </td>
+                                <td className="px-2 sm:px-4 py-2 sm:py-3 whitespace-nowrap text-xs sm:text-sm text-gray-700 hidden lg:table-cell">
+                                  {deltas.early > 0 ? <Badge color="orange">{earlyStr}</Badge> : <span className="text-gray-400">-</span>}
+                                </td>
+                                <td className="px-2 sm:px-4 py-2 sm:py-3 whitespace-nowrap text-xs sm:text-sm text-gray-700 hidden lg:table-cell">
+                                  {deltas.ot > 0 ? <Badge color="blue">{otStr}</Badge> : <span className="text-gray-400">-</span>}
+                                </td>
+                                <td className="px-2 sm:px-4 py-2 sm:py-3 whitespace-nowrap text-xs sm:text-sm text-gray-700">
+                                  <Badge color={statusColor as "green" | "orange" | "red"}>{row.status}</Badge>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                      </tbody>
                     </table>
                   </div>
                 </div>
@@ -497,14 +620,14 @@ export default function Page() {
                             <div className="flex flex-col gap-2 items-start">
                               <button
                                 className="inline-flex items-center gap-2 rounded-full border border-green-200 bg-white px-3 py-1 text-sm text-green-700 shadow-sm hover:bg-green-50"
-                                onClick={() => setRequests((prev) => prev.map((x) => (x.id === r.id ? { ...x, state: "approved" } : x)))}
+                                onClick={() => handleApprove(Number(r.id))}
                               >
                                 <span>✅</span>
                                 <span>Approve</span>
                               </button>
                               <button
                                 className="inline-flex items-center gap-2 rounded-full border border-red-200 bg-white px-3 py-1 text-sm text-red-700 shadow-sm hover:bg-red-50"
-                                onClick={() => setRequests((prev) => prev.map((x) => (x.id === r.id ? { ...x, state: "rejected" } : x)))}
+                                onClick={() => handleReject(Number(r.id))}
                               >
                                 <span>❌</span>
                                 <span>Reject</span>
@@ -590,8 +713,75 @@ export default function Page() {
             type="date"
             className="h-10 w-full rounded-md border border-gray-300 px-3 text-sm bg-white text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500"
             value={tempDate}
-            onChange={(e) => setTempDate(e.target.value)}
+            max={todayIso}
+            onChange={(e) => setTempDate(e.target.value > todayIso ? todayIso : e.target.value)}
           />
+        </div>
+      </Modal>
+
+      <Modal
+        open={isFilterOpen}
+        onClose={() => setIsFilterOpen(false)}
+        title="Filter Attendance"
+        footer={
+          <>
+            <ToolbarButton onClick={() => { setStatusFilter("all"); setIsFilterOpen(false); }}>Clear</ToolbarButton>
+            <ToolbarButton variant="primary" onClick={() => setIsFilterOpen(false)}>Apply</ToolbarButton>
+          </>
+        }
+      >
+        <div className="space-y-3">
+          <div className="flex items-center gap-3">
+            <label className="w-24 text-sm text-gray-700">Status</label>
+            <select
+              className="h-9 rounded-md border border-gray-300 px-3 text-sm bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value as any)}
+            >
+              <option value="all">All</option>
+              <option value="Present">Present</option>
+              <option value="Late">Late</option>
+              <option value="Absent">Absent</option>
+            </select>
+          </div>
+        </div>
+      </Modal>
+
+      <Modal
+        open={isAssignOpen}
+        onClose={() => setIsAssignOpen(false)}
+        title="Assign Shift"
+        footer={
+          <>
+            <ToolbarButton onClick={() => setIsAssignOpen(false)}>Cancel</ToolbarButton>
+            <ToolbarButton
+              variant="primary"
+              onClick={() => { setShiftStart(assignStart); setShiftEnd(assignEnd); setIsAssignOpen(false); loadAttendanceData(); }}
+            >
+              Save
+            </ToolbarButton>
+          </>
+        }
+      >
+        <div className="grid grid-cols-1 gap-3">
+          <div className="flex items-center gap-2">
+            <label className="text-sm text-gray-700 w-28">Shift Start</label>
+            <input
+              type="time"
+              className="h-9 w-full rounded-md border border-gray-300 px-3 text-sm bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              value={assignStart}
+              onChange={(e) => setAssignStart(e.target.value)}
+            />
+          </div>
+          <div className="flex items-center gap-2">
+            <label className="text-sm text-gray-700 w-28">Shift End</label>
+            <input
+              type="time"
+              className="h-9 w-full rounded-md border border-gray-300 px-3 text-sm bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              value={assignEnd}
+              onChange={(e) => setAssignEnd(e.target.value)}
+            />
+          </div>
         </div>
       </Modal>
       </div>

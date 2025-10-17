@@ -8,38 +8,65 @@ datasource db {
 }
 
 model Employee {
-  id                Int          @id @default(autoincrement())
-  email             String       @unique
-  department        String
-  joinDate          DateTime     @default(now())
-  certifications    String[]     @default([])
-  createdAt         DateTime     @default(now())
-  feedback          String?
-  firstName         String
-  jobTitle          String
-  lastName          String
-  leaveBalance      Int?         @default(10)
-  location          String?
-  performanceRating Float?
-  phone             String?
-  projects          String[]     @default([])
-  salary            Float?
-  skills            String[]     @default([])
-  status            String       @default("Active")
-  updatedAt         DateTime
-  attendance        Attendance[]
-  AuditLog          AuditLog[]
-  Document          Document[]
-  leaves            Leave[]
-  payrolls          Payroll[]
+  id                    Int                     @id @default(autoincrement())
+  email                 String                  @unique
+  department            String
+  joinDate              DateTime                @default(now())
+  certifications        String[]                @default([])
+  createdAt             DateTime                @default(now())
+  feedback              String?
+  firstName             String
+  jobTitle              String
+  lastName              String
+  leaveBalance          Int?                    @default(10)
+  location              String?
+  performanceRating     Float?
+  phone                 String?
+  projects              String[]                @default([])
+  salary                Float?
+  skills                String[]                @default([])
+  status                String                  @default("Active")
+  updatedAt             DateTime
+  attendance            Attendance[]
+  attendanceCorrections AttendanceCorrection[]
+  AuditLog              AuditLog[]
+  Document              Document[]
+  leaves                Leave[]
+  payrolls              Payroll[]
 }
 
 model Attendance {
-  id         Int      @id @default(autoincrement())
-  date       DateTime
-  status     String
+  id         Int       @id @default(autoincrement())
+  date       DateTime  // Store as date only (UTC midnight)
+  checkIn    DateTime? // Nullable if absent
+  checkOut   DateTime? // Nullable if absent or not yet checked out
+  status     String    // "Present" | "Late" | "Absent"
   employeeId Int
-  employee   Employee @relation(fields: [employeeId], references: [id])
+  employee   Employee  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  @@unique([employeeId, date])
+  @@index([date])
+  @@index([employeeId])
+}
+
+model AttendanceCorrection {
+  id                Int      @id @default(autoincrement())
+  employeeId        Int
+  date              DateTime
+  issue             String
+  requestedCheckIn  DateTime?
+  requestedCheckOut DateTime?
+  note              String?
+  state             String   @default("pending") // "pending" | "approved" | "rejected"
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  employee          Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@index([date])
+  @@index([employeeId])
+  @@index([state])
 }
 
 model Leave {
