@@ -78,6 +78,7 @@ model Leave {
   status     String   @default("Pending")
   employeeId Int
   employee   Employee @relation(fields: [employeeId], references: [id])
+  isPaid     Boolean?
 }
 
 model Payroll {

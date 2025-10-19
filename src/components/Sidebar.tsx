@@ -77,12 +77,27 @@ const Icons = {
       <path d="M17 17v-7" />
     </svg>
   ),
+  leave: (a: boolean) => (
+    <svg
+      viewBox="0 0 24 24"
+      className={`h-5 w-5 ${a ? "text-white" : "text-gray-500"}`}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+    >
+      <path d="M3 3h18v4H3z" />
+      <path d="M7 7v14h10V7" />
+      <path d="M9 11h6" />
+      <path d="M9 15h4" />
+    </svg>
+  ),
 };
 
 const navItems: NavItem[] = [
   { label: "Dashboard", href: "/admin/dashboard", icon: Icons.dashboard },
   { label: "Employees", href: "/admin/employees", icon: Icons.employees },
   { label: "Attendance", href: "/admin/attendance", icon: Icons.attendance },
+  { label: "Leave", href: "/admin/leave", icon: Icons.leave },
   { label: "Payroll", href: "/admin/payroll", icon: Icons.payroll },
   { label: "Performance", href: "/admin/performance", icon: Icons.performance },
 ];
@@ -286,7 +301,7 @@ export default function Sidebar() {
               <div className="space-y-1">
                 <div className="flex items-center justify-between text-[10px] text-gray-400">
                   <span>⌘K to search</span>
-                  <span>1-5 for quick nav</span>
+                  <span>1-6 for quick nav</span>
                 </div>
                 <div className="text-center">
                   <span className="text-[11px] text-gray-400">v1.0</span>
