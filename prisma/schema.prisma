@@ -33,6 +33,7 @@ model Employee {
   Document              Document[]
   leaves                Leave[]
   payrolls              Payroll[]
+  performances          Performance[]
 }
 
 model Attendance {
@@ -124,4 +125,20 @@ model User {
   email    String? @unique
   password String?
   role     Role    @default(EMPLOYEE)
+}
+
+// Single Performance Management Model
+model Performance {
+  id          Int      @id @default(autoincrement())
+  employeeId  Int
+  periodYear  Int      // e.g., 2025
+  periodMonth Int      // 1-12
+  score       Int      // 0-100 computed performance score
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@unique([employeeId, periodYear, periodMonth])
+  @@index([employeeId, periodYear, periodMonth])
 }

@@ -91,6 +91,79 @@ const Icons = {
       <path d="M9 15h4" />
     </svg>
   ),
+  recruitment: (a: boolean) => (
+    <svg
+      viewBox="0 0 24 24"
+      className={`h-5 w-5 ${a ? "text-white" : "text-gray-500"}`}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+    >
+      <circle cx="10" cy="8" r="4" />
+      <path d="M2 21a8 8 0 0 1 16 0" />
+      <path d="M21 21l-4-4" />
+    </svg>
+  ),
+  career: (a: boolean) => (
+    <svg
+      viewBox="0 0 24 24"
+      className={`h-5 w-5 ${a ? "text-white" : "text-gray-500"}`}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+    >
+      <path d="M3 12h6l3-5 3 10 3-5h3" />
+      <path d="M2 19h20" />
+    </svg>
+  ),
+  sentiment: (a: boolean) => (
+    <svg
+      viewBox="0 0 24 24"
+      className={`h-5 w-5 ${a ? "text-white" : "text-gray-500"}`}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+    >
+      <circle cx="12" cy="12" r="9" />
+      <path d="M8 10h.01M16 10h.01" />
+      <path d="M8 15s2 2 4 2 4-2 4-2" />
+    </svg>
+  ),
+  analytics: (a: boolean) => (
+    <svg
+      viewBox="0 0 24 24"
+      className={`h-5 w-5 ${a ? "text-white" : "text-gray-500"}`}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+    >
+      <path d="M3 3v18h18" />
+      <path d="M7 15l4-4 3 3 5-6" />
+    </svg>
+  ),
+  assistant: (a: boolean) => (
+    <svg
+      viewBox="0 0 24 24"
+      className={`h-5 w-5 ${a ? "text-white" : "text-gray-500"}`}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+    >
+      <path d="M12 2a7 7 0 1 1 0 14h-1l-4 3 1.5-3H8a7 7 0 0 1 4-14Z" />
+    </svg>
+  ),
+  settings: (a: boolean) => (
+    <svg
+      viewBox="0 0 24 24"
+      className={`h-5 w-5 ${a ? "text-white" : "text-gray-500"}`}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+    >
+      <path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z" />
+      <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06A2 2 0 1 1 7.04 3.4l.06.06a1.65 1.65 0 0 0 1.82.33h.01c.69-.28 1.14-.95 1.14-1.7V2a2 2 0 1 1 4 0v.09c0 .75.45 1.42 1.14 1.7h.01c.63.25 1.35.11 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06c-.45.47-.58 1.19-.33 1.82v.01c.28.69.95 1.14 1.7 1.14H22a2 2 0 1 1 0 4h-.09c-.75 0-1.42.45-1.7 1.14Z" />
+    </svg>
+  ),
 };
 
 const navItems: NavItem[] = [
@@ -99,7 +172,13 @@ const navItems: NavItem[] = [
   { label: "Attendance", href: "/admin/attendance", icon: Icons.attendance },
   { label: "Leave", href: "/admin/leave", icon: Icons.leave },
   { label: "Payroll", href: "/admin/payroll", icon: Icons.payroll },
+  { label: "Recruitment", href: "/admin/recruitment", icon: Icons.recruitment },
   { label: "Performance", href: "/admin/performance", icon: Icons.performance },
+  { label: "Career Growth", href: "/admin/career-growth", icon: Icons.career },
+  { label: "Sentiment Analysis", href: "/admin/sentiment", icon: Icons.sentiment },
+  { label: "AI Analytics", href: "/admin/analytics", icon: Icons.analytics },
+  { label: "AI Assistant", href: "/admin/ai-assistant", icon: Icons.assistant },
+  { label: "Settings", href: "/admin/settings", icon: Icons.settings },
 ];
 
 export default function Sidebar() {
@@ -301,7 +380,7 @@ export default function Sidebar() {
               <div className="space-y-1">
                 <div className="flex items-center justify-between text-[10px] text-gray-400">
                   <span>⌘K to search</span>
-                  <span>1-6 for quick nav</span>
+                  <span>1-12 for quick nav</span>
                 </div>
                 <div className="text-center">
                   <span className="text-[11px] text-gray-400">v1.0</span>
