@@ -142,3 +142,79 @@ model Performance {
   @@unique([employeeId, periodYear, periodMonth])
   @@index([employeeId, periodYear, periodMonth])
 }
+
+// Recruitment Models
+model Job {
+  id                 Int       @id @default(autoincrement())
+  title              String
+  department         String?
+  location           String?
+  type               String?
+  description        String?
+  descriptionRich    String?
+  status             String    @default("open")
+  expiresAt          DateTime?
+  autoTemplate       Boolean   @default(false)
+  externalPost       Boolean   @default(false)
+  testEnabled        Boolean   @default(false)
+  testPassingPercent Int?
+  test               Json?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  applications Application[]
+}
+
+model Candidate {
+  id        Int       @id @default(autoincrement())
+  name      String
+  email     String?   @unique
+  phone     String?
+  skills    String[]  @default([])
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  applications Application[]
+}
+
+model Application {
+  id           Int        @id @default(autoincrement())
+  jobId        Int
+  candidateId  Int
+  stage        String
+  notes        String?
+  scorePercent Int?
+  passed       Boolean?
+  answers      Json?
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  job       Job       @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  candidate Candidate @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  feedbacks Feedback[]
+
+  @@index([jobId])
+  @@index([candidateId])
+  @@index([stage])
+}
+
+model Feedback {
+  id             Int         @id @default(autoincrement())
+  applicationId  Int
+  by             String
+  text           String
+  sentimentScore Int?
+  sentimentLabel String?
+  createdAt      DateTime    @default(now())
+
+  application Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+
+  @@index([applicationId])
+}
+
+model Notification {
+  id        Int      @id @default(autoincrement())
+  type      String
+  payload   Json?
+  createdAt DateTime @default(now())
+}
