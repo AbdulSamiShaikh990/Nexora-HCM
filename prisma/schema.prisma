@@ -33,6 +33,7 @@ model Employee {
   Document              Document[]
   leaves                Leave[]
   payrolls              Payroll[]
+  payrollRecords        PayrollRecord[]
   performances          Performance[]
 }
 
@@ -217,4 +218,43 @@ model Notification {
   type      String
   payload   Json?
   createdAt DateTime @default(now())
+}
+
+/// Normalized Payroll models (added in addition to legacy `Payroll` model)
+model PayrollRun {
+  id          Int           @id @default(autoincrement())
+  periodYear  Int           // e.g., 2025
+  periodMonth Int           // 1-12
+  status      String        @default("draft") // draft | processing | processed | failed
+  currency    String        @default("USD")
+  processedAt DateTime?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  records     PayrollRecord[]
+
+  @@unique([periodYear, periodMonth])
+  @@index([status])
+}
+
+model PayrollRecord {
+  id          Int       @id @default(autoincrement())
+  runId       Int
+  employeeId  Int
+  department  String?
+  baseSalary  Float     // stored in USD baseline
+  bonus       Float?
+  deductions  Float?
+  netPay      Float
+  status      String    @default("Pending")
+  payDate     DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  employee Employee  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  run      PayrollRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+
+  @@index([employeeId])
+  @@index([runId])
+  @@index([status])
 }

@@ -269,9 +269,11 @@ export default function Sidebar() {
         } md:transform-none`}
       >
         <div
-          className="relative flex h-full flex-col"
+          id="sidebarScroll"
+          className="relative flex h-full flex-col overflow-y-auto overscroll-contain pr-1"
           style={{
             width: expanded ? expandedWidth : collapsedWidth,
+            height: '100vh'
           }}
         >
           {/* Logo */}
@@ -393,7 +395,7 @@ export default function Sidebar() {
           <button
             type="button"
             onClick={() => setExpanded((s) => !s)}
-            className="absolute right-[-14px] top-32 hidden h-7 w-7 items-center justify-center rounded-full bg-violet-600 text-white shadow md:inline-flex"
+            className="absolute right-[-10px] top-1/2 -translate-y-1/2 hidden h-8 w-8 items-center justify-center rounded-full bg-violet-600 text-white shadow-lg ring-2 ring-white z-50 md:inline-flex hover:scale-105 transition"
             aria-label="Toggle sidebar"
             title="Toggle sidebar"
           >
@@ -406,7 +408,7 @@ export default function Sidebar() {
           <button
             type="button"
             onClick={() => setMobileOpen((o) => !o)}
-            className="absolute right-[-14px] top-28 inline-flex h-7 w-7 items-center justify-center rounded-full bg-violet-600 text-white shadow md:hidden"
+            className="absolute right-[-10px] top-28 inline-flex h-8 w-8 items-center justify-center rounded-full bg-violet-600 text-white shadow-lg ring-2 ring-white z-50 md:hidden hover:scale-105 transition"
             aria-label="Open menu"
           >
             <svg viewBox="0 0 24 24" className="h-4 w-4" fill="currentColor">
@@ -426,6 +428,11 @@ export default function Sidebar() {
         }}
         aria-hidden
       />
+      {/* Hide scrollbar but keep scrolling */}
+      <style jsx>{`
+        #sidebarScroll { scrollbar-width: none; -ms-overflow-style: none; }
+        #sidebarScroll::-webkit-scrollbar { width: 0px; height: 0px; }
+      `}</style>
     </>
   );
 }
