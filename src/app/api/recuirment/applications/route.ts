@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { Prisma } from "@prisma/client";
 function nowISO() { return new Date().toISOString(); }
 
 export async function GET(req: Request) {
@@ -77,7 +78,7 @@ export async function POST(req: Request) {
         notes: body?.notes ? String(body.notes) : null,
         scorePercent,
         passed,
-        answers: answers.length ? (answers as any) : null,
+        answers: answers.length ? (answers as any) : Prisma.DbNull,
       },
     });
     return NextResponse.json(created, { status: 201 });

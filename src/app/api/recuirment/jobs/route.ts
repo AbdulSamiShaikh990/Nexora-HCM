@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { Prisma } from "@prisma/client";
 
 // In-memory store for demo purposes (process lifetime only) shared via globalThis
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -117,7 +118,7 @@ export async function POST(req: Request) {
         status: body?.status === "closed" ? "closed" : "open",
         testEnabled: !!test?.enabled,
         testPassingPercent: test?.enabled ? test.passingPercent : null,
-        test: test?.enabled ? test : null,
+        test: test?.enabled ? (test as any) : Prisma.DbNull,
       },
     });
 
