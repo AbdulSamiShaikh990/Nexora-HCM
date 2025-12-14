@@ -264,7 +264,7 @@ export default function Sidebar() {
 
       {/* Sidebar container */}
       <aside
-        className={`fixed left-0 top-0 z-50 flex h-screen flex-col rounded-3xl border border-gray-200 bg-white shadow-2xl transition-transform duration-200 md:translate-x-0 ${
+        className={`fixed left-0 top-0 z-50 flex h-screen flex-col rounded-r-3xl glass-strong ring-1 ring-white/20 transition-transform duration-200 md:translate-x-0 ${
           mobileOpen ? "translate-x-0" : "-translate-x-full"
         } md:transform-none`}
       >

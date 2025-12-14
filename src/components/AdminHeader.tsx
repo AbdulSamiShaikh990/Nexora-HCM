@@ -58,9 +58,9 @@ export default function AdminHeader() {
   };
 
   return (
-    <header className="sticky top-0 z-10 mb-4">
-      <div className="bg-gradient-to-r from-indigo-600 to-violet-600 px-4 py-3 text-white shadow-md md:px-6 md:py-4">
-        <div className="flex items-center gap-3">
+    <header className="sticky top-0 z-20 mb-4">
+      <div className="bg-gradient-to-r from-indigo-600 to-violet-600/95 text-white shadow-md ring-1 ring-white/15 backdrop-blur supports-[backdrop-filter]:bg-gradient-to-r supports-[backdrop-filter]:from-indigo-600/85 supports-[backdrop-filter]:to-violet-600/85">
+        <div className="mx-auto max-w-7xl px-3 sm:px-4 md:px-6 py-3 md:py-4 flex items-center gap-3">
           {/* Left: logo chip (hidden on very small screens to save space) */}
           <div className="hidden xs:flex items-center gap-2 rounded-full bg-white/15 px-2 py-1">
             <Image src="/logo.png" alt="Nexora HCM" width={22} height={22} className="rounded" />
@@ -69,7 +69,7 @@ export default function AdminHeader() {
 
           {/* Center: breadcrumb/title */}
           <div className="flex-1 truncate text-center xs:text-left">
-            <div className="truncate text-sm md:text-base opacity-90">
+            <div className="truncate text-sm md:text-base tracking-tight opacity-95">
               Admin {breadcrumb ? `/ ${breadcrumb}` : ""}
             </div>
           </div>
@@ -79,9 +79,9 @@ export default function AdminHeader() {
             <button
               type="button"
               onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-              className="inline-flex items-center gap-2 rounded-full bg-white/20 px-2 py-1 text-xs backdrop-blur hover:bg-white/25 md:text-sm"
+              className="inline-flex items-center gap-2 rounded-full bg-white/20 px-2.5 py-1.5 text-xs md:text-sm backdrop-blur ring-1 ring-white/30 hover:bg-white/25 hover:ring-white/40 transition-colors"
             >
-              <span className="inline-flex h-6 w-6 items-center justify-center overflow-hidden rounded-full bg-white/80">
+              <span className="inline-flex h-6 w-6 items-center justify-center overflow-hidden rounded-full bg-white/85 shadow-sm">
                 <svg viewBox="0 0 24 24" className="h-4 w-4 text-indigo-700" fill="currentColor">
                   <circle cx="12" cy="8" r="4" />
                   <path d="M4 20a8 8 0 0 1 16 0" />
@@ -99,11 +99,11 @@ export default function AdminHeader() {
 
             {/* Dropdown menu */}
             {isDropdownOpen && (
-              <div className="absolute right-0 top-full mt-2 w-48 rounded-lg bg-white shadow-lg ring-1 ring-black ring-opacity-5 z-50">
+              <div className="absolute right-0 top-full mt-2 w-48 rounded-xl bg-white/95 backdrop-blur shadow-lg ring-1 ring-black/5 z-50">
                 <div className="py-1">
                   <button
                     onClick={handleSignOut}
-                    className="flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                    className="flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
                   >
                     <svg viewBox="0 0 24 24" className="h-4 w-4" fill="currentColor">
                       <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />

@@ -10,7 +10,7 @@ export default function AdminLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <div className="flex min-h-screen bg-gray-50">
+    <div className="flex min-h-screen bg-transparent">
       {/* Fixed, responsive sidebar with internal spacer */}
       <Sidebar />
 
@@ -19,7 +19,7 @@ export default function AdminLayout({
         <AdminHeader />
         <div className="p-2 sm:p-4 md:p-6">
           <div className="mx-auto max-w-7xl w-full">
-            <div className="rounded-xl bg-white p-3 sm:p-4 md:p-6 shadow-sm">
+            <div className="glass rounded-2xl p-4 sm:p-5 md:p-6 border border-white/30 shadow-[0_6px_20px_rgba(31,38,135,0.14)]">
               {children}
             </div>
           </div>
