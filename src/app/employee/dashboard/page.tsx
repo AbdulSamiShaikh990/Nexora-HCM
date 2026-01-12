@@ -1,12 +1,12 @@
-"use client";
-
-export default function EmployeeDashboardPage() {
+export default function DashboardPage() {
   return (
-    <div className="p-6">
-      <h1 className="text-2xl font-bold text-gray-900 mb-6">Employee Dashboard</h1>
-      <div className="bg-white rounded-lg shadow p-6">
-        <p className="text-gray-600">Employee dashboard coming soon...</p>
-      </div>
+    <div className="w-full">
+      <h1 className="text-xl sm:text-2xl lg:text-3xl font-semibold text-gray-900 truncate">
+        Dashboard
+      </h1>
+      <p className="mt-1 sm:mt-2 text-xs sm:text-sm text-gray-600">
+        Employee Dashboard
+      </p>
     </div>
   );
 }
