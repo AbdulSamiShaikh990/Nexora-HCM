@@ -35,6 +35,7 @@ model Employee {
   payrolls              Payroll[]
   payrollRecords        PayrollRecord[]
   performances          Performance[]
+  remoteWork            RemoteWorkRequest[]
 }
 
 model Attendance {
@@ -69,6 +70,24 @@ model AttendanceCorrection {
   @@index([date])
   @@index([employeeId])
   @@index([state])
+}
+
+model RemoteWorkRequest {
+  id          Int      @id @default(autoincrement())
+  employeeId  Int
+  startDate   DateTime // Remote work start date
+  endDate     DateTime // Remote work end date
+  reason      String
+  state       String   @default("pending") // "pending" | "approved" | "rejected"
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  approvedBy  String?  // Admin email who approved
+  approvedAt  DateTime?
+  employee    Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@index([employeeId])
+  @@index([state])
+  @@index([startDate, endDate])
 }
 
 model Leave {

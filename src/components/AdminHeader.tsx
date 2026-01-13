@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import Link from "next/link";
 import { useMemo, useState, useEffect, useRef } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { signOut } from "next-auth/react";
@@ -15,6 +16,7 @@ export default function AdminHeader() {
   const pathname = usePathname();
   const router = useRouter();
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [pendingCount, setPendingCount] = useState(0);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   const crumbs = useMemo(() => {
@@ -24,6 +26,27 @@ export default function AdminHeader() {
   }, [pathname]);
 
   const breadcrumb = crumbs.slice(1).join(" / ") || "Dashboard"; // ignore leading "Admin"
+
+  // Fetch pending notifications count
+  useEffect(() => {
+    const fetchPendingCount = async () => {
+      try {
+        const res = await fetch("/api/attendance/admin/remote");
+        if (res.ok) {
+          const data = await res.json();
+          const pending = data.requests?.filter((r: { state: string }) => r.state === "pending").length || 0;
+          setPendingCount(pending);
+        }
+      } catch (error) {
+        console.error("Error fetching notification count:", error);
+      }
+    };
+
+    fetchPendingCount();
+    // Refresh every 30 seconds
+    const interval = setInterval(fetchPendingCount, 30000);
+    return () => clearInterval(interval);
+  }, []);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -74,8 +97,34 @@ export default function AdminHeader() {
             </div>
           </div>
 
-          {/* Right: user dropdown */}
-          <div className="relative ml-auto" ref={dropdownRef}>
+          {/* Right: Notification Bell + User Dropdown */}
+          <div className="flex items-center gap-2">
+            {/* Notification Bell */}
+            <Link href="/admin/notifications" className="relative">
+              <button className="inline-flex items-center justify-center h-9 w-9 rounded-full bg-white/20 backdrop-blur ring-1 ring-white/30 hover:bg-white/25 hover:ring-white/40 transition-colors">
+                <svg
+                  className="h-5 w-5 text-white"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"
+                  />
+                </svg>
+                {pendingCount > 0 && (
+                  <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center ring-2 ring-white/30">
+                    {pendingCount > 9 ? "9+" : pendingCount}
+                  </span>
+                )}
+              </button>
+            </Link>
+
+            {/* User Dropdown */}
+            <div className="relative" ref={dropdownRef}>
             <button
               type="button"
               onClick={() => setIsDropdownOpen(!isDropdownOpen)}
@@ -115,6 +164,7 @@ export default function AdminHeader() {
                 </div>
               </div>
             )}
+          </div>
           </div>
         </div>
       </div>
