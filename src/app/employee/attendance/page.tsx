@@ -114,14 +114,28 @@ const getDemoData = (): AttendanceData => {
   };
 };
 
-// Format time to 12-hour clock
+// Pakistan timezone
+const PAKISTAN_TZ = "Asia/Karachi";
+
+// Format time to 12-hour clock (Pakistan timezone)
 const to12Hour = (time: string | null) => {
   if (!time) return "-";
-  const [h, m] = time.split(":").map(Number);
-  if (Number.isNaN(h) || Number.isNaN(m)) return time;
-  const date = new Date();
-  date.setHours(h, m, 0, 0);
-  return date.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: true });
+  // If time is already in HH:MM format
+  if (time.includes(":") && !time.includes("T")) {
+    const [h, m] = time.split(":").map(Number);
+    if (Number.isNaN(h) || Number.isNaN(m)) return time;
+    const ampm = h >= 12 ? "PM" : "AM";
+    const hour12 = h % 12 || 12;
+    return `${String(hour12).padStart(2, "0")}:${String(m).padStart(2, "0")} ${ampm}`;
+  }
+  // If time is ISO string
+  const date = new Date(time);
+  return date.toLocaleTimeString("en-US", { 
+    hour: "2-digit", 
+    minute: "2-digit", 
+    hour12: true,
+    timeZone: PAKISTAN_TZ
+  });
 };
 
 const formatDateDisplay = (dateStr: string) => {
@@ -140,6 +154,7 @@ export default function AttendancePage() {
   const [data, setData] = useState<AttendanceData | null>(null);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
+  const [currentDate, setCurrentDate] = useState(() => new Date().toDateString());
   const [selectedMonth, setSelectedMonth] = useState(() => {
     const now = new Date();
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
@@ -183,6 +198,39 @@ export default function AttendancePage() {
     fetchData();
     fetchRemoteRequests();
   }, [fetchData]);
+
+  // Auto-refresh when date changes (check every minute)
+  useEffect(() => {
+    // Immediately set to current date/month on mount
+    const now = new Date();
+    const currentMonthStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+    const newDate = now.toDateString();
+    
+    if (currentMonthStr !== selectedMonth || newDate !== currentDate) {
+      setCurrentDate(newDate);
+      setSelectedMonth(currentMonthStr);
+    }
+
+    const checkDateChange = () => {
+      const newDate = new Date().toDateString();
+      if (newDate !== currentDate) {
+        setCurrentDate(newDate);
+        
+        // Update selected month to current month when date changes
+        const now = new Date();
+        const currentMonthStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+        setSelectedMonth(currentMonthStr);
+        
+        // Refresh data
+        fetchData();
+      }
+    };
+
+    // Check every minute
+    const interval = setInterval(checkDateChange, 60000);
+    
+    return () => clearInterval(interval);
+  }, [currentDate, fetchData, selectedMonth]);
 
   const shiftMonth = (delta: number) => {
     const [year, month] = selectedMonth.split("-").map(Number);

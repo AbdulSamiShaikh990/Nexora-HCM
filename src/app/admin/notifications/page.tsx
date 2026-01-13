@@ -103,20 +103,46 @@ export default function NotificationsPage() {
     });
   };
 
+  // Pakistan timezone
+  const PAKISTAN_TZ = "Asia/Karachi";
+
   const formatTime = (dateStr: string) => {
-    // Parse the ISO string and extract time without timezone conversion
     const date = new Date(dateStr);
-    // Get UTC time components to avoid timezone offset
-    const hours = String(date.getUTCHours()).padStart(2, "0");
-    const minutes = String(date.getUTCMinutes()).padStart(2, "0");
-    
-    // Convert to 12-hour format
-    let hour12 = parseInt(hours);
-    const ampm = hour12 >= 12 ? "PM" : "AM";
-    if (hour12 > 12) hour12 -= 12;
-    if (hour12 === 0) hour12 = 12;
-    
-    return `${String(hour12).padStart(2, "0")}:${minutes} ${ampm}`;
+    return date.toLocaleTimeString("en-US", {
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: true,
+      timeZone: PAKISTAN_TZ,
+    });
+  };
+
+  const formatRequestedTime = (value: string | null | undefined) => {
+    if (!value) return "—";
+
+    // If backend already sent formatted time (e.g. "09:05 AM"), display as-is.
+    if (/^\d{1,2}:\d{2}\s?(AM|PM)$/i.test(value.trim())) return value;
+
+    // If backend sent 24h time (e.g. "18:05"), convert to 12h.
+    if (/^\d{2}:\d{2}$/.test(value.trim())) {
+      const [hStr, mStr] = value.split(":");
+      const hours = Number(hStr);
+      const minutes = Number(mStr);
+      if (Number.isFinite(hours) && Number.isFinite(minutes)) {
+        const ampm = hours >= 12 ? "PM" : "AM";
+        const h12 = ((hours + 11) % 12) + 1;
+        return `${String(h12).padStart(2, "0")}:${String(minutes).padStart(2, "0")} ${ampm}`;
+      }
+      return "—";
+    }
+
+    // Otherwise treat it as an ISO datetime.
+    try {
+      const d = new Date(value);
+      if (Number.isNaN(d.getTime())) return "—";
+      return formatTime(value);
+    } catch {
+      return "—";
+    }
   };
 
   const getStateColor = (state: string) => {
@@ -316,7 +342,7 @@ export default function NotificationsPage() {
                                 <div>
                                   <p className="text-xs text-gray-500 mb-1">Requested Check-In</p>
                                   <p className="text-sm font-medium text-gray-900">
-                                    {formatTime(notification.requestedCheckIn)}
+                                    {formatRequestedTime(notification.requestedCheckIn)}
                                   </p>
                                 </div>
                               )}
@@ -324,7 +350,7 @@ export default function NotificationsPage() {
                                 <div>
                                   <p className="text-xs text-gray-500 mb-1">Requested Check-Out</p>
                                   <p className="text-sm font-medium text-gray-900">
-                                    {formatTime(notification.requestedCheckOut)}
+                                    {formatRequestedTime(notification.requestedCheckOut)}
                                   </p>
                                 </div>
                               )}

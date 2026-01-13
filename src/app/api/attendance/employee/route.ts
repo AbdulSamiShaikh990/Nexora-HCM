@@ -36,18 +36,33 @@ function getDistanceMeters(
   return R * c;
 }
 
-// Helper: Format time to 12-hour clock with AM/PM (local device time)
+// Helper: Format time to 12-hour clock with AM/PM (Pakistan time)
 function formatTime(date: Date): string {
-  return date.toLocaleTimeString("en-US", {
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: true,
-  });
+  // Get Pakistan time (UTC+5)
+  const pakTime = getPakistanTime(date);
+  const hours = pakTime.hours;
+  const minutes = pakTime.minutes;
+  
+  const hour12 = hours === 0 ? 12 : hours > 12 ? hours - 12 : hours;
+  const ampm = hours >= 12 ? "PM" : "AM";
+  const minStr = String(minutes).padStart(2, "0");
+  
+  return `${String(hour12).padStart(2, "0")}:${minStr} ${ampm}`;
 }
 
 // Helper: Format date to YYYY-MM-DD
 function formatDate(date: Date): string {
   return date.toISOString().split("T")[0];
+}
+
+// Helper: Get Pakistan time from UTC
+function getPakistanTime(date: Date): { hours: number; minutes: number } {
+  // Pakistan is UTC+5
+  const utcHours = date.getUTCHours();
+  const utcMinutes = date.getUTCMinutes();
+  let pakHours = utcHours + 5;
+  if (pakHours >= 24) pakHours -= 24;
+  return { hours: pakHours, minutes: utcMinutes };
 }
 
 // Helper: Calculate hours worked
@@ -56,11 +71,19 @@ function calculateHoursWorked(checkIn: Date | null, checkOut: Date | null): numb
   return (checkOut.getTime() - checkIn.getTime()) / (1000 * 60 * 60);
 }
 
-// Helper: Determine status based on check-in time
+function getPakistanMinutes(date: Date): number {
+  const pakTime = getPakistanTime(date);
+  return pakTime.hours * 60 + pakTime.minutes;
+}
+
+// Helper: Determine status based on check-in time (Pakistan timezone)
 function determineStatus(checkIn: Date): "present" | "late" {
   const [shiftH, shiftM] = SHIFT_START.split(":").map(Number);
   const shiftStartMinutes = shiftH * 60 + shiftM;
-  const checkInMinutes = checkIn.getUTCHours() * 60 + checkIn.getUTCMinutes();
+  
+  // Get Pakistan time
+  const pakTime = getPakistanTime(checkIn);
+  const checkInMinutes = pakTime.hours * 60 + pakTime.minutes;
   
   if (checkInMinutes > shiftStartMinutes + LATE_THRESHOLD_MINUTES) {
     return "late";
@@ -128,10 +151,22 @@ export async function GET(req: Request) {
     const startOfMonth = new Date(Date.UTC(targetYear, targetMonth, 1, 0, 0, 0));
     const endOfMonth = new Date(Date.UTC(targetYear, targetMonth + 1, 0, 23, 59, 59));
     
-    // Today's date for current status
-    const todayStr = formatDate(now);
-    const todayStart = new Date(todayStr + "T00:00:00.000Z");
-    const todayEnd = new Date(todayStr + "T23:59:59.999Z");
+    // Today's date for current status - use Pakistan timezone (UTC+5)
+    // Current time in Pakistan is now + 5 hours
+    // Pakistan midnight today = UTC (now - nowHours - nowMinutes - nowSeconds) + 19 hours
+    // Or simpler: Pakistan midnight today in UTC = (Pakistan date at 00:00 UTC+5)
+    
+    const todayStart = new Date(Date.UTC(
+      now.getUTCFullYear(),
+      now.getUTCMonth(),
+      now.getUTCDate(),
+      0, 0, 0, 0
+    ));
+    
+    // Subtract 5 hours to get Pakistan midnight in UTC
+    todayStart.setUTCHours(todayStart.getUTCHours() - 5);
+    
+    const todayEnd = new Date(todayStart.getTime() + (24 * 60 * 60 * 1000) - 1);
 
     // Get today's attendance
     const todayAttendance = await prisma.attendance.findFirst({
@@ -179,13 +214,15 @@ export async function GET(req: Request) {
       if (record.checkIn && record.checkOut) {
         const hoursWorked = calculateHoursWorked(record.checkIn, record.checkOut);
         totalMinutes += hoursWorked * 60;
-        
+
         if (hoursWorked < HALF_DAY_HOURS && hoursWorked > 0) {
           halfDays++;
         }
 
-        // Calculate overtime
-        const checkOutMinutes = record.checkOut.getUTCHours() * 60 + record.checkOut.getUTCMinutes();
+        // Overtime: only count when the employee checked out after shift end (Pakistan time).
+        const checkOutMinutes = getPakistanMinutes(record.checkOut);
+
+        // Overtime is time worked beyond shift end
         if (checkOutMinutes > shiftEndMinutes) {
           overtimeMinutes += checkOutMinutes - shiftEndMinutes;
         }
@@ -199,10 +236,16 @@ export async function GET(req: Request) {
     // Format records for frontend
     const formattedRecords = monthlyRecords.map((record) => {
       const hoursWorked = calculateHoursWorked(record.checkIn, record.checkOut);
-      const checkOutMinutes = record.checkOut 
-        ? record.checkOut.getUTCHours() * 60 + record.checkOut.getUTCMinutes()
-        : 0;
-      const ot = Math.max(0, checkOutMinutes - shiftEndMinutes);
+
+      let otMinutes = 0;
+      if (record.checkOut) {
+        const checkOutMinutes = getPakistanMinutes(record.checkOut);
+        
+        // Overtime is time worked beyond shift end
+        if (checkOutMinutes > shiftEndMinutes) {
+          otMinutes = checkOutMinutes - shiftEndMinutes;
+        }
+      }
       
       return {
         id: record.id,
@@ -210,9 +253,9 @@ export async function GET(req: Request) {
         checkIn: record.checkIn ? formatTime(record.checkIn) : null,
         checkOut: record.checkOut ? formatTime(record.checkOut) : null,
         totalHours: Math.round(hoursWorked * 100) / 100,
-        overtime: Math.round((ot / 60) * 100) / 100,
+        overtime: Math.round((otMinutes / 60) * 100) / 100,
         breakTime: 1, // Assume 1 hour break
-        status: hoursWorked < HALF_DAY_HOURS && hoursWorked > 0 ? "half-day" : (record.status || "").toLowerCase(),
+        status: (record.status || "").toLowerCase(),
       };
     });
 
@@ -301,16 +344,24 @@ export async function POST(req: Request) {
 
     // Check if employee has approved remote work for today
     const now = new Date();
-    const todayStr = formatDate(now);
-    const todayDate = new Date(todayStr + "T00:00:00.000Z");
+    
+    // Use Pakistan timezone (UTC+5) for today's date
+    const todayStart = new Date(Date.UTC(
+      now.getUTCFullYear(),
+      now.getUTCMonth(),
+      now.getUTCDate(),
+      0, 0, 0, 0
+    ));
+    todayStart.setUTCHours(todayStart.getUTCHours() - 5);
+    const todayEnd = new Date(todayStart.getTime() + (24 * 60 * 60 * 1000) - 1);
 
     // @ts-expect-error - Prisma type will be available after server restart
     const remoteWorkApproved = await prisma.remoteWorkRequest.findFirst({
       where: {
         employeeId: employee.id,
         state: "approved",
-        startDate: { lte: todayDate },
-        endDate: { gte: todayDate },
+        startDate: { lte: todayEnd },
+        endDate: { gte: todayStart },
       },
     });
 
@@ -342,7 +393,7 @@ export async function POST(req: Request) {
     let attendance = await prisma.attendance.findFirst({
       where: {
         employeeId: employee.id,
-        date: todayDate,
+        date: { gte: todayStart, lte: todayEnd },
       },
     });
 
@@ -367,7 +418,7 @@ export async function POST(req: Request) {
         attendance = await prisma.attendance.create({
           data: {
             employeeId: employee.id,
-            date: todayDate,
+            date: todayStart,
             checkIn: now,
             status,
           },

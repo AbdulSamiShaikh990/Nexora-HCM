@@ -37,15 +37,32 @@ export async function POST(req: Request) {
     const correctionDate = new Date(date + "T00:00:00.000Z");
 
     // Parse requested times if provided
+    // Pakistan is UTC+5, so we subtract 5 hours to store in UTC
     let requestedCheckInTime: Date | null = null;
     let requestedCheckOutTime: Date | null = null;
 
     if (requestedCheckIn) {
-      requestedCheckInTime = new Date(date + "T" + requestedCheckIn + ":00.000Z");
+      // Parse the time and subtract 5 hours for Pakistan timezone
+      const [hours, minutes] = requestedCheckIn.split(":").map(Number);
+      const utcHours = hours - 5;
+      const adjustedDate = new Date(date + "T00:00:00.000Z");
+      adjustedDate.setUTCHours(utcHours < 0 ? utcHours + 24 : utcHours, minutes, 0, 0);
+      if (utcHours < 0) {
+        adjustedDate.setUTCDate(adjustedDate.getUTCDate() - 1);
+      }
+      requestedCheckInTime = adjustedDate;
     }
 
     if (requestedCheckOut) {
-      requestedCheckOutTime = new Date(date + "T" + requestedCheckOut + ":00.000Z");
+      // Parse the time and subtract 5 hours for Pakistan timezone
+      const [hours, minutes] = requestedCheckOut.split(":").map(Number);
+      const utcHours = hours - 5;
+      const adjustedDate = new Date(date + "T00:00:00.000Z");
+      adjustedDate.setUTCHours(utcHours < 0 ? utcHours + 24 : utcHours, minutes, 0, 0);
+      if (utcHours < 0) {
+        adjustedDate.setUTCDate(adjustedDate.getUTCDate() - 1);
+      }
+      requestedCheckOutTime = adjustedDate;
     }
 
     // Create correction request

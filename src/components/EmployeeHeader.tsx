@@ -12,6 +12,7 @@ export default function EmployeeHeader({ isCollapsed }: EmployeeHeaderProps) {
   const { data: session } = useSession();
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [currentTime, setCurrentTime] = useState("");
+  const [currentDate, setCurrentDate] = useState("");
   const dropdownRef = useRef<HTMLDivElement>(null);
   const pathname = usePathname();
   const router = useRouter();
@@ -24,10 +25,20 @@ export default function EmployeeHeader({ isCollapsed }: EmployeeHeaderProps) {
 
   useEffect(() => {
     const updateTime = () => {
+      const now = new Date();
       setCurrentTime(
-        new Date().toLocaleTimeString("en-US", {
+        now.toLocaleTimeString("en-US", {
           hour: "2-digit",
           minute: "2-digit",
+          timeZone: "Asia/Karachi",
+        })
+      );
+      setCurrentDate(
+        now.toLocaleDateString("en-US", {
+          month: "short",
+          day: "numeric",
+          year: "numeric",
+          timeZone: "Asia/Karachi",
         })
       );
     };
@@ -82,9 +93,12 @@ export default function EmployeeHeader({ isCollapsed }: EmployeeHeaderProps) {
                 d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
               />
             </svg>
-            <span className="text-sm font-medium text-gray-700">
-              {currentTime}
-            </span>
+            <div className="flex flex-col">
+              <span className="text-xs text-gray-500">{currentDate}</span>
+              <span className="text-sm font-medium text-gray-700">
+                {currentTime}
+              </span>
+            </div>
           </div>
 
           <button className="relative p-2 hover:bg-orange-100/80 rounded-lg transition-colors">

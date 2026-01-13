@@ -3,6 +3,20 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 
+// Pakistan timezone helper
+const PAKISTAN_TZ = "Asia/Karachi";
+
+function formatPakistanTimeSafe(value: unknown): string | null {
+  if (!(value instanceof Date)) return null;
+  if (Number.isNaN(value.getTime())) return null;
+  return value.toLocaleTimeString("en-US", {
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: true,
+    timeZone: PAKISTAN_TZ,
+  });
+}
+
 // GET /api/attendance/admin/remote - Get all notifications (remote work + attendance corrections)
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 export async function GET(_req: Request) {
@@ -92,8 +106,8 @@ export async function GET(_req: Request) {
       jobTitle: req.employee.jobTitle,
       date: req.date.toISOString(),
       issue: req.issue,
-      requestedCheckIn: req.requestedCheckIn?.toISOString() || null,
-      requestedCheckOut: req.requestedCheckOut?.toISOString() || null,
+      requestedCheckIn: formatPakistanTimeSafe(req.requestedCheckIn),
+      requestedCheckOut: formatPakistanTimeSafe(req.requestedCheckOut),
       note: req.note,
       state: req.state,
       createdAt: req.createdAt.toISOString(),
@@ -208,7 +222,7 @@ export async function PATCH(req: Request) {
       // If approved, apply the correction to the actual attendance record
       if (action === "approved") {
         const correctionDate = new Date(correctionRequest.date);
-        correctionDate.setHours(0, 0, 0, 0);
+        correctionDate.setUTCHours(0, 0, 0, 0);
 
         // Find or create attendance record for that date
         const existingAttendance = await prisma.attendance.findUnique({
@@ -228,14 +242,17 @@ export async function PATCH(req: Request) {
         } = {};
 
         if (correctionRequest.requestedCheckIn) {
+          // Use the stored time directly (already in UTC, converted from Pakistan time)
           updateData.checkIn = new Date(correctionRequest.requestedCheckIn);
         }
 
         if (correctionRequest.requestedCheckOut) {
+          // Use the stored time directly (already in UTC, converted from Pakistan time)
           updateData.checkOut = new Date(correctionRequest.requestedCheckOut);
         }
 
         // Update status based on the issue type and corrected times
+        // Pakistan is UTC+5, so 9:15 AM Pakistan = 4:15 AM UTC
         if (correctionRequest.issue === "Forgot to check in" && updateData.checkIn) {
           updateData.status = "present";
         } else if (correctionRequest.issue === "Forgot to check out" && updateData.checkOut) {
@@ -243,10 +260,11 @@ export async function PATCH(req: Request) {
         } else if (correctionRequest.issue === "Wrong check-in time" || correctionRequest.issue === "Wrong check-out time") {
           // Keep or set status based on corrected time
           if (updateData.checkIn) {
-            const checkInTime = new Date(updateData.checkIn);
-            const shiftStart = new Date(correctionDate);
-            shiftStart.setHours(9, 15, 0, 0); // 9:15 AM late threshold
-            updateData.status = checkInTime > shiftStart ? "late" : "present";
+            const checkInHour = updateData.checkIn.getUTCHours();
+            const checkInMinute = updateData.checkIn.getUTCMinutes();
+            // 9:15 AM Pakistan = 4:15 AM UTC (9:15 - 5 hours = 4:15)
+            const isLate = checkInHour > 4 || (checkInHour === 4 && checkInMinute > 15);
+            updateData.status = isLate ? "late" : "present";
           } else {
             updateData.status = existingAttendance?.status || "present";
           }
