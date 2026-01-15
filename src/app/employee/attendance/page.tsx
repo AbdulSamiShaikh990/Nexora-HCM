@@ -506,22 +506,29 @@ export default function AttendancePage() {
 
   return (
     <div className="w-full space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div className="flex items-center gap-4">
+      {/* Header - Task Page Style */}
+      <div className="bg-gradient-to-r from-orange-50 to-orange-100 rounded-3xl border border-orange-200 p-6 sm:p-8 shadow-lg">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <div className="bg-orange-500 rounded-2xl p-4 shadow-lg">
+              <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900">Attendance Details</h1>
+              <p className="text-gray-600 mt-1">Track your daily attendance and work hours</p>
+            </div>
+          </div>
           <Link 
             href="/employee/dashboard" 
-            className="flex items-center gap-2 text-gray-600 hover:text-orange-600 transition-colors"
+            className="flex items-center gap-2 px-4 py-2 rounded-xl border-2 border-orange-300 bg-white text-orange-700 font-medium hover:bg-orange-50 transition-all"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
             </svg>
-            <span className="text-sm font-medium">Back to Dashboard</span>
+            Back
           </Link>
-        </div>
-        <div>
-          <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-gray-900">Attendance Details</h1>
-          <p className="text-sm text-gray-600">Track your daily attendance and work hours</p>
         </div>
       </div>
 

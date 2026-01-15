@@ -1,37 +1,18 @@
 "use client";
 import { useState, useEffect } from "react";
 
-type BaseNotification = {
+type Notification = {
   id: string;
-  type: "remote_work" | "attendance_correction";
-  employeeId: number;
+  type: "remote_work" | "attendance_correction" | "leave";
   employeeName: string;
   employeeEmail: string;
   department: string | null;
   jobTitle: string | null;
   state: "pending" | "approved" | "rejected";
   createdAt: string;
+  title: string;
+  message: string;
 };
-
-type RemoteWorkNotification = BaseNotification & {
-  type: "remote_work";
-  startDate: string;
-  endDate: string;
-  reason: string;
-  approvedBy: string | null;
-  approvedAt: string | null;
-};
-
-type CorrectionNotification = BaseNotification & {
-  type: "attendance_correction";
-  date: string;
-  issue: string;
-  requestedCheckIn: string | null;
-  requestedCheckOut: string | null;
-  note: string | null;
-};
-
-type Notification = RemoteWorkNotification | CorrectionNotification;
 
 export default function NotificationsPage() {
   const [notifications, setNotifications] = useState<Notification[]>([]);
@@ -48,10 +29,10 @@ export default function NotificationsPage() {
 
   const fetchNotifications = async () => {
     try {
-      const res = await fetch("/api/attendance/admin/remote");
+      const res = await fetch("/api/notifications/admin");
       if (res.ok) {
         const data = await res.json();
-        setNotifications(data.requests || []);
+        setNotifications(data.notifications || []);
       }
     } catch (error) {
       console.error("Error fetching notifications:", error);
@@ -63,22 +44,35 @@ export default function NotificationsPage() {
   const handleAction = async (notification: Notification, action: "approved" | "rejected") => {
     setProcessingId(notification.id);
     try {
-      const res = await fetch("/api/attendance/admin/remote", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ 
-          requestId: parseInt(notification.id), 
-          action,
-          type: notification.type
-        }),
-      });
-
-      if (res.ok) {
-        // Refresh the list
-        await fetchNotifications();
+      if (notification.type === "leave") {
+        const res = await fetch("/api/leave/admin", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ id: notification.id, status: action === "approved" ? "Approved" : "Rejected" }),
+        });
+        if (res.ok) {
+          await fetchNotifications();
+        } else {
+          const data = await res.json();
+          alert(data.error || "Failed to process leave request");
+        }
       } else {
-        const data = await res.json();
-        alert(data.error || "Failed to process request");
+        const res = await fetch("/api/attendance/admin/remote", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ 
+            requestId: parseInt(notification.id, 10), 
+            action,
+            type: notification.type
+          }),
+        });
+
+        if (res.ok) {
+          await fetchNotifications();
+        } else {
+          const data = await res.json();
+          alert(data.error || "Failed to process request");
+        }
       }
     } catch (error) {
       console.error("Error processing request:", error);
@@ -94,56 +88,6 @@ export default function NotificationsPage() {
   });
 
   const pendingCount = notifications.filter((r) => r.state === "pending").length;
-
-  const formatDate = (dateStr: string) => {
-    return new Date(dateStr).toLocaleDateString("en-US", {
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-    });
-  };
-
-  // Pakistan timezone
-  const PAKISTAN_TZ = "Asia/Karachi";
-
-  const formatTime = (dateStr: string) => {
-    const date = new Date(dateStr);
-    return date.toLocaleTimeString("en-US", {
-      hour: "2-digit",
-      minute: "2-digit",
-      hour12: true,
-      timeZone: PAKISTAN_TZ,
-    });
-  };
-
-  const formatRequestedTime = (value: string | null | undefined) => {
-    if (!value) return "—";
-
-    // If backend already sent formatted time (e.g. "09:05 AM"), display as-is.
-    if (/^\d{1,2}:\d{2}\s?(AM|PM)$/i.test(value.trim())) return value;
-
-    // If backend sent 24h time (e.g. "18:05"), convert to 12h.
-    if (/^\d{2}:\d{2}$/.test(value.trim())) {
-      const [hStr, mStr] = value.split(":");
-      const hours = Number(hStr);
-      const minutes = Number(mStr);
-      if (Number.isFinite(hours) && Number.isFinite(minutes)) {
-        const ampm = hours >= 12 ? "PM" : "AM";
-        const h12 = ((hours + 11) % 12) + 1;
-        return `${String(h12).padStart(2, "0")}:${String(minutes).padStart(2, "0")} ${ampm}`;
-      }
-      return "—";
-    }
-
-    // Otherwise treat it as an ISO datetime.
-    try {
-      const d = new Date(value);
-      if (Number.isNaN(d.getTime())) return "—";
-      return formatTime(value);
-    } catch {
-      return "—";
-    }
-  };
 
   const getStateColor = (state: string) => {
     switch (state) {
@@ -164,6 +108,8 @@ export default function NotificationsPage() {
         return { label: "Remote Work Request", icon: "🏠", color: "bg-blue-100 text-blue-800" };
       case "attendance_correction":
         return { label: "Attendance Correction", icon: "📝", color: "bg-purple-100 text-purple-800" };
+      case "leave":
+        return { label: "Leave Request", icon: "🌿", color: "bg-green-100 text-green-800" };
       default:
         return { label: "Request", icon: "📋", color: "bg-gray-100 text-gray-800" };
     }
@@ -285,106 +231,32 @@ export default function NotificationsPage() {
                           {notification.employeeName.charAt(0).toUpperCase()}
                         </span>
                       </div>
-                      <div>
+                      <div className="flex-1">
                         <h3 className="font-semibold text-gray-900">{notification.employeeName}</h3>
                         <p className="text-sm text-gray-600">{notification.employeeEmail}</p>
+                        <p className="text-xs text-gray-500">{notification.department || "N/A"} · {notification.jobTitle || "N/A"}</p>
                       </div>
                     </div>
 
-                    {/* Request Details */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
-                      <div>
-                        <p className="text-xs text-gray-500 mb-1">Department</p>
-                        <p className="text-sm font-medium text-gray-900">
-                          {notification.department || "N/A"}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-gray-500 mb-1">Job Title</p>
-                        <p className="text-sm font-medium text-gray-900">
-                          {notification.jobTitle || "N/A"}
-                        </p>
-                      </div>
-
-                      {/* Type-specific fields */}
-                      {notification.type === "remote_work" ? (
-                        <>
-                          <div>
-                            <p className="text-xs text-gray-500 mb-1">Start Date</p>
-                            <p className="text-sm font-medium text-gray-900">
-                              {formatDate(notification.startDate)}
-                            </p>
-                          </div>
-                          <div>
-                            <p className="text-xs text-gray-500 mb-1">End Date</p>
-                            <p className="text-sm font-medium text-gray-900">
-                              {formatDate(notification.endDate)}
-                            </p>
-                          </div>
-                        </>
-                      ) : (
-                        <>
-                          <div>
-                            <p className="text-xs text-gray-500 mb-1">Date</p>
-                            <p className="text-sm font-medium text-gray-900">
-                              {formatDate(notification.date)}
-                            </p>
-                          </div>
-                          <div>
-                            <p className="text-xs text-gray-500 mb-1">Issue</p>
-                            <p className="text-sm font-medium text-gray-900">
-                              {notification.issue}
-                            </p>
-                          </div>
-                          {(notification.requestedCheckIn || notification.requestedCheckOut) && (
-                            <>
-                              {notification.requestedCheckIn && (
-                                <div>
-                                  <p className="text-xs text-gray-500 mb-1">Requested Check-In</p>
-                                  <p className="text-sm font-medium text-gray-900">
-                                    {formatRequestedTime(notification.requestedCheckIn)}
-                                  </p>
-                                </div>
-                              )}
-                              {notification.requestedCheckOut && (
-                                <div>
-                                  <p className="text-xs text-gray-500 mb-1">Requested Check-Out</p>
-                                  <p className="text-sm font-medium text-gray-900">
-                                    {formatRequestedTime(notification.requestedCheckOut)}
-                                  </p>
-                                </div>
-                              )}
-                            </>
-                          )}
-                        </>
-                      )}
-                    </div>
-
-                    {/* Reason/Note */}
+                    {/* Message */}
                     <div className="mb-3">
-                      <p className="text-xs text-gray-500 mb-1">
-                        {notification.type === "remote_work" ? "Reason" : "Note"}
-                      </p>
-                      <p className="text-sm text-gray-800 bg-gray-50 rounded-lg p-3">
-                        {notification.type === "remote_work" 
-                          ? notification.reason 
-                          : notification.note || "No additional notes"}
+                      <p className="text-sm text-gray-800 bg-gray-50 rounded-lg p-3 leading-relaxed">
+                        {notification.message}
                       </p>
                     </div>
 
-                    {/* Status & Approval Info */}
+                    {/* Status */}
                     <div className="flex items-center gap-3 flex-wrap">
                       <span className={`px-3 py-1 rounded-full text-xs font-medium ${getStateColor(notification.state)}`}>
                         {notification.state.toUpperCase()}
                       </span>
-                      {notification.type === "remote_work" && notification.state !== "pending" && notification.approvedBy && (
-                        <span className="text-xs text-gray-600">
-                          {notification.state === "approved" ? "Approved" : "Rejected"} by{" "}
-                          {notification.approvedBy} on {formatDate(notification.approvedAt!)}
-                        </span>
-                      )}
                       <span className="text-xs text-gray-500">
-                        Requested on {formatDate(notification.createdAt)}
+                        {new Date(notification.createdAt).toLocaleString("en-US", {
+                          month: "short",
+                          day: "numeric",
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })}
                       </span>
                     </div>
                   </div>

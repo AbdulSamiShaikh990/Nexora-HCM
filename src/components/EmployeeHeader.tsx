@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from "react";
 import { useSession, signOut } from "next-auth/react";
 import { usePathname, useRouter } from "next/navigation";
+import { useEmployeeNotifications } from "@/hooks/useEmployeeNotifications";
 
 interface EmployeeHeaderProps {
   isCollapsed: boolean;
@@ -14,8 +15,17 @@ export default function EmployeeHeader({ isCollapsed }: EmployeeHeaderProps) {
   const [currentTime, setCurrentTime] = useState("");
   const [currentDate, setCurrentDate] = useState("");
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const notifRef = useRef<HTMLDivElement>(null);
   const pathname = usePathname();
   const router = useRouter();
+  const {
+    notifications,
+    unreadCount,
+    markAsRead,
+    markAllAsRead,
+    loading: notificationsLoading,
+  } = useEmployeeNotifications();
+  const [isNotifOpen, setIsNotifOpen] = useState(false);
 
   const getCurrentPage = () => {
     const pathParts = pathname.split("/");
@@ -49,11 +59,11 @@ export default function EmployeeHeader({ isCollapsed }: EmployeeHeaderProps) {
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (
-        dropdownRef.current &&
-        !dropdownRef.current.contains(event.target as Node)
-      ) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
         setIsDropdownOpen(false);
+      }
+      if (notifRef.current && !notifRef.current.contains(event.target as Node)) {
+        setIsNotifOpen(false);
       }
     };
 
@@ -101,22 +111,110 @@ export default function EmployeeHeader({ isCollapsed }: EmployeeHeaderProps) {
             </div>
           </div>
 
-          <button className="relative p-2 hover:bg-orange-100/80 rounded-lg transition-colors">
-            <svg
-              className="w-5 h-5 lg:w-6 lg:h-6 text-gray-600"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
+          <div className="relative" ref={notifRef}>
+            <button
+              onClick={() => setIsNotifOpen((open) => !open)}
+              className="relative p-2 hover:bg-orange-100/80 rounded-lg transition-colors"
+              aria-label="Notifications"
             >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"
-              />
-            </svg>
-            <span className="absolute top-1 right-1 w-2 h-2 bg-orange-500 rounded-full"></span>
-          </button>
+              <svg
+                className="w-5 h-5 lg:w-6 lg:h-6 text-gray-600"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"
+                />
+              </svg>
+              {unreadCount > 0 && (
+                <span className="absolute -top-1 -right-1 flex h-5 min-w-[20px] items-center justify-center rounded-full bg-orange-500 px-1 text-[11px] font-bold text-white shadow-sm">
+                  {unreadCount > 9 ? "9+" : unreadCount}
+                </span>
+              )}
+            </button>
+
+            {isNotifOpen && (
+              <div className="absolute right-0 mt-2 w-80 rounded-xl bg-white/95 backdrop-blur-xl shadow-xl border border-orange-100/60 py-2 z-50">
+                <div className="flex items-center justify-between px-3 pb-2 border-b border-orange-100/80">
+                  <div>
+                    <p className="text-sm font-semibold text-gray-900">Notifications</p>
+                    <p className="text-xs text-gray-500">{unreadCount} new updates</p>
+                  </div>
+                  <button
+                    onClick={markAllAsRead}
+                    className="text-xs font-medium text-orange-600 hover:text-orange-700"
+                    disabled={unreadCount === 0}
+                  >
+                    Mark all
+                  </button>
+                </div>
+
+                <div className="max-h-80 overflow-y-auto divide-y divide-orange-50">
+                  {notificationsLoading ? (
+                    <div className="p-3 text-sm text-gray-500">Loading updates...</div>
+                  ) : notifications.length === 0 ? (
+                    <div className="p-3 text-sm text-gray-500">No notifications yet</div>
+                  ) : (
+                    notifications.slice(0, 6).map((item) => {
+                      const pillStyles =
+                        item.state === "approved"
+                          ? "bg-green-100 text-green-700"
+                          : item.state === "rejected"
+                          ? "bg-red-100 text-red-700"
+                          : "bg-yellow-100 text-yellow-700";
+
+                      return (
+                        <button
+                          key={`${item.id}-${item.state}`}
+                          onClick={() => {
+                            markAsRead(item);
+                          }}
+                          className="flex w-full items-start gap-3 px-3 py-3 text-left hover:bg-orange-50/60"
+                        >
+                          <span
+                            className={`mt-1 h-2.5 w-2.5 rounded-full ${
+                              item.state === "approved"
+                                ? "bg-green-500"
+                                : item.state === "rejected"
+                                ? "bg-red-500"
+                                : "bg-yellow-500"
+                            }`}
+                          />
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center justify-between gap-2">
+                              <p className="text-sm font-semibold text-gray-900 line-clamp-1">
+                                {item.title}
+                              </p>
+                              <span className={`whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-semibold ${pillStyles}`}>
+                                {item.state === "pending"
+                                  ? "Pending"
+                                  : item.state === "approved"
+                                  ? "Approved"
+                                  : "Rejected"}
+                              </span>
+                            </div>
+                            <p className="mt-1 text-xs text-gray-600 line-clamp-2">{item.message}</p>
+                            <p className="mt-1 text-[11px] text-gray-400">
+                              {new Date(item.createdAt).toLocaleString("en-US", {
+                                month: "short",
+                                day: "numeric",
+                                hour: "2-digit",
+                                minute: "2-digit",
+                              })}
+                            </p>
+                          </div>
+                        </button>
+                      );
+                    })
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
 
           <div className="relative" ref={dropdownRef}>
             <button

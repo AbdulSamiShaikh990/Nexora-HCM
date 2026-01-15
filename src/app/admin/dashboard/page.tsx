@@ -4,10 +4,12 @@ import Link from "next/link";
 
 type Notification = {
   id: string;
-  type: string;
+  type: "remote_work" | "attendance_correction" | "leave";
   employeeName: string;
-  state: string;
+  state: "pending" | "approved" | "rejected";
   createdAt: string;
+  title: string;
+  message: string;
 };
 
 export default function Page() {
@@ -20,14 +22,14 @@ export default function Page() {
 
   const fetchNotifications = async () => {
     try {
-      const res = await fetch("/api/attendance/admin/remote");
+      const res = await fetch("/api/notifications/admin");
       if (res.ok) {
         const data = await res.json();
-        const recentPending = (data.requests || [])
-          .filter((r: Notification) => r.state === "pending")
-          .slice(0, 5);
-        setNotifications(recentPending);
-        setPendingCount(data.pendingCount || 0);
+        const pending = (data.notifications || []).filter(
+          (r: Notification) => r.state === "pending"
+        );
+        setNotifications(pending.slice(0, 5));
+        setPendingCount(data.pendingCount || pending.length || 0);
       }
     } catch (error) {
       console.error("Error fetching notifications:", error);
@@ -40,6 +42,8 @@ export default function Page() {
         return { label: "Remote Work", icon: "🏠" };
       case "attendance_correction":
         return { label: "Attendance Fix", icon: "📝" };
+      case "leave":
+        return { label: "Leave", icon: "🌿" };
       default:
         return { label: "Request", icon: "📋" };
     }
@@ -104,10 +108,10 @@ export default function Page() {
                 >
                   <span className="text-xl">{typeInfo.icon}</span>
                   <div className="flex-1">
-                    <p className="text-sm font-medium text-gray-900">
-                      {notif.employeeName}
+                    <p className="text-sm font-medium text-gray-900 line-clamp-1">
+                      {notif.title || notif.employeeName}
                     </p>
-                    <p className="text-xs text-gray-600">{typeInfo.label}</p>
+                    <p className="text-xs text-gray-600 line-clamp-2">{notif.message || typeInfo.label}</p>
                   </div>
                   <span className="text-xs text-gray-500">
                     {new Date(notif.createdAt).toLocaleDateString("en-US", {

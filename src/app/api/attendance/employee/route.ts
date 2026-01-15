@@ -50,9 +50,14 @@ function formatTime(date: Date): string {
   return `${String(hour12).padStart(2, "0")}:${minStr} ${ampm}`;
 }
 
-// Helper: Format date to YYYY-MM-DD
+// Helper: Format date to YYYY-MM-DD in Pakistan timezone
 function formatDate(date: Date): string {
-  return date.toISOString().split("T")[0];
+  // Convert to Pakistan time (UTC+5) and format
+  const pakistanTime = new Date(date.getTime() + (5 * 60 * 60 * 1000));
+  const year = pakistanTime.getUTCFullYear();
+  const month = String(pakistanTime.getUTCMonth() + 1).padStart(2, '0');
+  const day = String(pakistanTime.getUTCDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
 }
 
 // Helper: Get Pakistan time from UTC
@@ -346,12 +351,15 @@ export async function POST(req: Request) {
     const now = new Date();
     
     // Use Pakistan timezone (UTC+5) for today's date
+    // Convert current UTC time to Pakistan time, then get midnight
+    const pakistanNow = new Date(now.getTime() + (5 * 60 * 60 * 1000)); // Add 5 hours for PKT
     const todayStart = new Date(Date.UTC(
-      now.getUTCFullYear(),
-      now.getUTCMonth(),
-      now.getUTCDate(),
+      pakistanNow.getUTCFullYear(),
+      pakistanNow.getUTCMonth(),
+      pakistanNow.getUTCDate(),
       0, 0, 0, 0
     ));
+    // Subtract 5 hours to convert back to UTC
     todayStart.setUTCHours(todayStart.getUTCHours() - 5);
     const todayEnd = new Date(todayStart.getTime() + (24 * 60 * 60 * 1000) - 1);
 

@@ -27,14 +27,14 @@ export default function AdminHeader() {
 
   const breadcrumb = crumbs.slice(1).join(" / ") || "Dashboard"; // ignore leading "Admin"
 
-  // Fetch pending notifications count
+  // Fetch pending notifications count (attendance + leaves)
   useEffect(() => {
     const fetchPendingCount = async () => {
       try {
-        const res = await fetch("/api/attendance/admin/remote");
+        const res = await fetch("/api/notifications/admin");
         if (res.ok) {
           const data = await res.json();
-          const pending = data.requests?.filter((r: { state: string }) => r.state === "pending").length || 0;
+          const pending = data?.pendingCount ?? 0;
           setPendingCount(pending);
         }
       } catch (error) {

@@ -365,21 +365,39 @@ export default function LeavePage() {
 
   return (
     <div className={leaveStyles.container.base}>
-      {/* Header with CTA */}
-      <div className={leaveStyles.container.header}>
-        <div>
-          <h1 className={leaveStyles.container.title}>Leave Management</h1>
-          <p className={leaveStyles.container.subtitle}>
-            Manage your leave requests and track balance
-          </p>
+      {/* Header - Task Page Style */}
+      <div className="bg-gradient-to-r from-orange-50 to-orange-100 rounded-3xl border border-orange-200 p-6 sm:p-8 mb-6 shadow-lg">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <div className="bg-orange-500 rounded-2xl p-4 shadow-lg">
+              <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+              </svg>
+            </div>
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900">Leave Management</h1>
+              <p className="text-gray-600 mt-1">Manage your leave requests and track balance</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => window.location.href = '/employee/dashboard'}
+              className="flex items-center gap-2 px-4 py-2 rounded-xl border-2 border-orange-300 bg-white text-orange-700 font-medium hover:bg-orange-50 transition-all"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+              </svg>
+              Back
+            </button>
+            <button
+              onClick={handleRequestLeave}
+              className="flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-orange-500 to-orange-600 text-white font-medium shadow-lg hover:shadow-xl transition-all"
+            >
+              <Plus className="w-5 h-5" />
+              <span>Request Leave</span>
+            </button>
+          </div>
         </div>
-        <button
-          onClick={handleRequestLeave}
-          className={`${leaveStyles.button.primary} flex-shrink-0`}
-        >
-          <Plus className="w-4 sm:w-5 h-4 sm:h-5" />
-          <span>Request Leave</span>
-        </button>
       </div>
 
       {/* Key Metrics - Leave Stats at Top */}
