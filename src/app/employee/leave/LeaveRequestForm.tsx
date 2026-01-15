@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
-import { X } from "lucide-react";
+import { X, AlertTriangle } from "lucide-react";
 import { leaveStyles } from "./styles";
 
 interface LeaveRequestFormProps {
@@ -20,13 +20,16 @@ export interface LeaveFormData {
   attachments: File[];
 }
 
+interface LeaveBalance {
+  type: string;
+  remaining: number;
+}
+
 const leaveTypes = [
-  { value: "annual", label: "Annual Leave" },
-  { value: "sick", label: "Sick Leave" },
-  { value: "personal", label: "Personal Leave" },
-  { value: "maternity", label: "Maternity Leave" },
-  { value: "paternity", label: "Paternity Leave" },
-  { value: "emergency", label: "Emergency Leave" },
+  { value: "annual", label: "Annual Leave (14/year)" },
+  { value: "sick", label: "Sick Leave (3/month)" },
+  { value: "casual", label: "Casual Leave (2/month)" },
+  { value: "emergency", label: "Emergency Leave (1/month)" },
 ];
 
 export default function LeaveRequestForm({ isOpen, onClose, onSubmit }: LeaveRequestFormProps) {
@@ -41,11 +44,60 @@ export default function LeaveRequestForm({ isOpen, onClose, onSubmit }: LeaveReq
 
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [mounted, setMounted] = useState(false);
+  const [leaveBalances, setLeaveBalances] = useState<LeaveBalance[]>([]);
+  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+  const [balanceWarning, setBalanceWarning] = useState("");
 
   // Mount check for portal
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  // Fetch leave balances
+  useEffect(() => {
+    const fetchBalances = async () => {
+      try {
+        const response = await fetch("/api/leave/employee");
+        if (response.ok) {
+          const data = await response.json();
+          if (data.data) {
+            // Calculate balances based on leave data
+            const requests = data.data || [];
+            const currentMonth = new Date().getMonth() + 1;
+            
+            const usedAnnual = requests.filter((r: any) => 
+              r.type?.toLowerCase().includes('annual') && r.status === 'Approved'
+            ).reduce((sum: number, r: any) => sum + (r.days || 0), 0);
+            
+            const usedSick = requests.filter((r: any) => 
+              r.type?.toLowerCase().includes('sick') && r.status === 'Approved'
+            ).reduce((sum: number, r: any) => sum + (r.days || 0), 0);
+            
+            const usedCasual = requests.filter((r: any) => 
+              r.type?.toLowerCase().includes('casual') && r.status === 'Approved'
+            ).reduce((sum: number, r: any) => sum + (r.days || 0), 0);
+            
+            const usedEmergency = requests.filter((r: any) => 
+              r.type?.toLowerCase().includes('emergency') && r.status === 'Approved'
+            ).reduce((sum: number, r: any) => sum + (r.days || 0), 0);
+
+            setLeaveBalances([
+              { type: "annual", remaining: Math.max(14 - usedAnnual, 0) },
+              { type: "sick", remaining: Math.max((3 * currentMonth) - usedSick, 0) },
+              { type: "casual", remaining: Math.max((2 * currentMonth) - usedCasual, 0) },
+              { type: "emergency", remaining: Math.max((1 * currentMonth) - usedEmergency, 0) },
+            ]);
+          }
+        }
+      } catch (error) {
+        console.error("Failed to fetch balances:", error);
+      }
+    };
+
+    if (isOpen) {
+      fetchBalances();
+    }
+  }, [isOpen]);
 
   // Prevent body scroll when modal is open
   useEffect(() => {
@@ -100,8 +152,28 @@ export default function LeaveRequestForm({ isOpen, onClose, onSubmit }: LeaveReq
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (validateForm()) {
-      submitLeaveRequest();
+      // Check balance before submitting
+      const selectedBalance = leaveBalances.find(b => b.type === formData.leaveType);
+      if (selectedBalance && formData.duration > selectedBalance.remaining) {
+        setBalanceWarning(
+          `You are requesting ${formData.duration} day(s) but only have ${selectedBalance.remaining} day(s) remaining for this leave type. Do you still want to submit this request?`
+        );
+        setShowConfirmDialog(true);
+      } else {
+        submitLeaveRequest();
+      }
     }
+  };
+
+  const handleConfirmSubmit = () => {
+    setShowConfirmDialog(false);
+    setBalanceWarning("");
+    submitLeaveRequest();
+  };
+
+  const handleCancelConfirm = () => {
+    setShowConfirmDialog(false);
+    setBalanceWarning("");
   };
 
   const submitLeaveRequest = async () => {
@@ -155,8 +227,41 @@ export default function LeaveRequestForm({ isOpen, onClose, onSubmit }: LeaveReq
 
   if (!isOpen || !mounted) return null;
 
+  // Confirmation Dialog
+  const confirmDialog = showConfirmDialog && (
+    <div className="fixed inset-0 z-[10001] flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/70" onClick={handleCancelConfirm}></div>
+      <div className="bg-white rounded-xl shadow-2xl w-full max-w-md relative z-[10002] p-6">
+        <div className="flex items-center gap-3 mb-4">
+          <div className="p-2 bg-yellow-100 rounded-full">
+            <AlertTriangle className="w-6 h-6 text-yellow-600" />
+          </div>
+          <h3 className="text-lg font-bold text-gray-900">Insufficient Balance</h3>
+        </div>
+        <p className="text-sm text-gray-700 mb-6">{balanceWarning}</p>
+        <div className="flex gap-3">
+          <button
+            onClick={handleCancelConfirm}
+            className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleConfirmSubmit}
+            className="flex-1 px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors"
+          >
+            Yes, Submit Anyway
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+
   const modalContent = (
     <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
+      {/* Confirm Dialog */}
+      {confirmDialog}
+      
       {/* Overlay */}
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose}></div>
       
@@ -199,6 +304,14 @@ export default function LeaveRequestForm({ isOpen, onClose, onSubmit }: LeaveReq
               ))}
             </select>
             {errors.leaveType && <p className="text-red-600 text-xs mt-1">{errors.leaveType}</p>}
+            {formData.leaveType && (
+              <div className="mt-2 p-2 bg-blue-50 border border-blue-200 rounded-lg">
+                <p className="text-xs text-blue-700">
+                  <span className="font-semibold">Remaining Balance: </span>
+                  {leaveBalances.find(b => b.type === formData.leaveType)?.remaining ?? 0} day(s)
+                </p>
+              </div>
+            )}
           </div>
 
           {/* Date Range */}

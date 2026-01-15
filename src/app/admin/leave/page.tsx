@@ -19,6 +19,7 @@ type LeaveRow = {
   employeeStatus: string;
   department: string;
   leaveBalance: number;
+  totalLeaveBalance: number;
   isPaid?: boolean | null;
 };
 
@@ -27,10 +28,7 @@ const TYPES = [
   "all",
   "Annual",
   "Sick",
-  "Personal",
-  "Vacation",
-  "Half-day",
-  "Hourly",
+  "Casual",
   "Emergency",
 ] as const;
 
@@ -119,6 +117,23 @@ export default function Page() {
         avgPerEmployee: Math.round(json.stats.total / Math.max(1, json.stats.total)),
       });
       setTotalPages(json.pagination.totalPages);
+      
+      // Populate calendar from leave data
+      const cal: Record<string, "Approved" | "Pending" | "Rejected"> = {};
+      json.data.forEach((leave: LeaveRow) => {
+        const start = new Date(leave.startDate);
+        const end = new Date(leave.endDate);
+        for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+          const key = d.toISOString().split('T')[0];
+          // Priority: Rejected > Pending > Approved
+          if (!cal[key] || 
+              (leave.status === 'Rejected') ||
+              (leave.status === 'Pending' && cal[key] !== 'Rejected')) {
+            cal[key] = leave.status as "Approved" | "Pending" | "Rejected";
+          }
+        }
+      });
+      setCalendar(cal);
       setError("");
     } catch (e: any) {
       console.error("[Load Error]", e);
@@ -422,7 +437,12 @@ export default function Page() {
                     </td>
                     <td className="px-4 py-3 text-gray-800">{r.department}</td>
                     <td className="px-4 py-3 text-gray-800">{r.type}</td>
-                    <td className="px-4 py-3 text-gray-800">{Number(r.leaveBalance).toFixed(2)}</td>
+                    <td className="px-4 py-3 text-gray-800">
+                      <div className="text-sm font-medium text-gray-900">
+                        {Number(r.leaveBalance).toFixed(0)}/{Number(r.totalLeaveBalance).toFixed(0)}
+                      </div>
+                      <div className="text-xs text-gray-500">remaining/total</div>
+                    </td>
                     <td className="px-4 py-3 text-gray-800">{r.days.toFixed(0)}</td>
                     <td className="px-4 py-3">
                       <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium ${
@@ -510,6 +530,14 @@ export default function Page() {
           <div className="relative w-full max-w-md rounded-2xl bg-white p-4 sm:p-6 shadow-xl">
             <h3 className="text-lg font-semibold text-gray-900">Reject Leave</h3>
             <p className="mt-1 text-sm text-gray-600">Please provide a visible reason for rejection.</p>
+            {(() => {
+              const row = data.find(d => d.id === rejectModal.id);
+              return row && row.status === "Approved" ? (
+                <p className="mt-2 rounded-lg bg-blue-50 px-3 py-2 text-xs text-blue-700">
+                  ℹ️ Leave balance will be restored by {row.days} days after rejection.
+                </p>
+              ) : null;
+            })()}
             <textarea
               value={rejectModal.reason}
               onChange={(e) => setRejectModal((m) => ({ ...m, reason: e.target.value }))}
@@ -569,13 +597,22 @@ export default function Page() {
             />
             {(() => {
               const row = data.find(d => d.id === approveModal.id);
-              const eligible = row ? Number(row.leaveBalance) >= Number(row.days) : false;
               return (
-                <label className="mt-3 flex items-center gap-2 text-sm text-gray-800">
-                  <input type="checkbox" checked={approveModal.paid && eligible} disabled={!eligible}
-                    onChange={(e) => setApproveModal(m => ({ ...m, paid: e.target.checked }))} />
-                  <span>{eligible ? 'Mark as Paid (deduct from balance)' : 'Insufficient balance: will be Unpaid'}</span>
-                </label>
+                <div className="mt-3 space-y-3">
+                  <label className="flex items-center gap-2 text-sm text-gray-800">
+                    <input type="checkbox" checked={approveModal.paid}
+                      onChange={(e) => {
+                        const checked = e.target.checked;
+                        setApproveModal(m => ({ ...m, paid: checked }));
+                      }} />
+                    <span>Mark as Paid</span>
+                  </label>
+                  {row && (
+                    <p className="mt-1 text-xs text-gray-600">
+                      Leave Days: {row.days} | Available: {row.leaveBalance}/{row.totalLeaveBalance}
+                    </p>
+                  )}
+                </div>
               );
             })()}
             <div className="mt-4 flex justify-end gap-2">
@@ -585,12 +622,17 @@ export default function Page() {
                 onClick={async () => {
                   const id = approveModal.id!;
                   const prev = data;
-                  setData((d) => d.map((r) => (r.id === id ? { ...r, status: "Approved", reason: approveModal.reason || r.reason, isPaid: approveModal.paid && (Number(r.leaveBalance) >= Number(r.days)) } : r)));
+                  setData((d) => d.map((r) => (r.id === id ? { ...r, status: "Approved", reason: approveModal.reason || r.reason, isPaid: approveModal.paid } : r)));
                   try {
-                    const res = await fetch("/api/leave", {
+                    const res = await fetch("/api/leave/admin", {
                       method: "PUT",
                       headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify({ id, status: "Approved", reason: approveModal.reason, maxOverlap: 2, paid: approveModal.paid }),
+                      body: JSON.stringify({ 
+                        id, 
+                        status: "Approved", 
+                        approverComment: approveModal.reason,
+                        paid: approveModal.paid
+                      }),
                     });
                     if (!res.ok) {
                       const j = await res.json().catch(() => ({}));

@@ -37,154 +37,264 @@ interface LeaveRequest {
 
 export default function LeavePage() {
   const [isFormOpen, setIsFormOpen] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [leaveStats, setLeaveStats] = useState({
-    totalApplied: 96,
-    approved: 4,
-    pending: 92,
-    activeRequests: 2,
+    totalApplied: 0,
+    approved: 0,
+    pending: 0,
+    activeRequests: 0,
   });
 
-  const [leaveBalances, setLeaveBalances] = useState<LeaveBalance[]>([
-    {
-      type: "Annual Leave",
-      total: 21,
-      used: 8,
-      remaining: 13,
-      description: "Yearly vacation leave",
-    },
-    {
-      type: "Sick Leave",
-      total: 15,
-      used: 3,
-      remaining: 12,
-      description: "Medical leave for illness",
-    },
-    {
-      type: "Personal Leave",
-      total: 5,
-      used: 1,
-      remaining: 4,
-      description: "Personal time off",
-    },
-    {
-      type: "Maternity Leave",
-      total: 90,
-      used: 0,
-      remaining: 90,
-      description: "Maternity benefit leave",
-    },
-  ]);
+  const [leaveBalances, setLeaveBalances] = useState<LeaveBalance[]>([]);
+  const [leaveRequests, setLeaveRequests] = useState<LeaveRequest[]>([]);
+  const [notifications, setNotifications] = useState<LeaveNotification[]>([]);
+  const [leaveDays, setLeaveDays] = useState<Array<{date: string; status: string; type: string}>>([]);
+  const [trendData, setTrendData] = useState<Array<{month: string; approved: number; pending: number; rejected: number}>>([]);
+  const [chartData, setChartData] = useState<Array<{type: string; count: number; percentage: number; color: string}>>([]);
 
-  const [leaveRequests, setLeaveRequests] = useState<LeaveRequest[]>([
-    {
-      id: "1",
-      leaveType: "Sick Leave",
-      description: "Medical appointment and recovery",
-      duration: 3,
-      startDate: "1/10/2024",
-      endDate: "1/12/2024",
-      appliedDate: "1/8/2024",
-      status: "approved",
-      approvedBy: "Manager on 1/9/2024",
-      approvalDate: "1/9/2024",
-      comments: "Approved with medical certificate",
-    },
-    {
-      id: "2",
-      leaveType: "Annual Leave",
-      description: "Personal vacation",
-      duration: 2,
-      startDate: "1/25/2024",
-      endDate: "1/26/2024",
-      appliedDate: "1/15/2024",
-      status: "pending",
-      comments: "Awaiting approval",
-    },
-    {
-      id: "3",
-      leaveType: "Personal Leave",
-      description: "Family event",
-      duration: 1,
-      startDate: "2/5/2024",
-      endDate: "2/5/2024",
-      appliedDate: "1/20/2024",
-      status: "approved",
-      approvedBy: "Manager on 1/21/2024",
-      approvalDate: "1/21/2024",
-      comments: "Approved",
-    },
-  ]);
-
-  const [notifications, setNotifications] = useState<LeaveNotification[]>([
-    {
-      id: "1",
-      title: "Leave Approved",
-      message: "Your sick leave from 1/10/2024 to 1/12/2024 has been approved",
-      type: "success",
-      timestamp: "2 hours ago",
-      read: true,
-    },
-    {
-      id: "2",
-      title: "Leave Request Pending",
-      message: "Your annual leave request from 1/25/2024 to 1/26/2024 is awaiting approval",
-      type: "pending",
-      timestamp: "5 hours ago",
-      read: false,
-      action: {
-        label: "View Details",
-        onClick: () => console.log("View details clicked"),
-      },
-    },
-    {
-      id: "3",
-      title: "Low Leave Balance",
-      message: "Your annual leave balance is running low. Only 13 days remaining",
-      type: "warning",
-      timestamp: "1 day ago",
-      read: false,
-    },
-  ]);
-
-  // Simulate API call to fetch data
+  // Fetch all leave data from backend
   useEffect(() => {
     const fetchLeaveData = async () => {
       try {
-        const response = await fetch("/api/leave");
-        if (response.ok) {
-          const data = await response.json();
-          
-          // Update leave requests from API
-          if (data.data && Array.isArray(data.data)) {
-            const requests = data.data.map((item: any) => ({
-              id: String(item.id),
-              leaveType: item.type,
-              description: item.reason || "-",
-              duration: item.days,
-              startDate: new Date(item.startDate).toLocaleDateString(),
-              endDate: new Date(item.endDate).toLocaleDateString(),
-              appliedDate: new Date(item.createdAt || Date.now()).toLocaleDateString(),
-              status: item.status?.toLowerCase() === "pending" ? "pending" : 
-                      item.status?.toLowerCase() === "approved" ? "approved" : "rejected",
-              approvedBy: item.approvedBy,
-              approvalDate: item.approvedAt ? new Date(item.approvedAt).toLocaleDateString() : undefined,
-              comments: item.reason,
-            }));
-            setLeaveRequests(requests);
-          }
+        setLoading(true);
+        const response = await fetch("/api/leave/employee");
+        
+        if (!response.ok) {
+          throw new Error("Failed to fetch leave data");
+        }
 
-          // Update stats
-          if (data.stats) {
-            setLeaveStats({
-              totalApplied: data.stats.totalThisMonth || 0,
-              approved: data.data?.filter((r: any) => r.status === "Approved").length || 0,
-              pending: data.data?.filter((r: any) => r.status === "Pending").length || 0,
-              activeRequests: data.data?.filter((r: any) => r.status === "Pending").length || 0,
+        const data = await response.json();
+        
+        // Update leave requests
+        if (data.data && Array.isArray(data.data)) {
+          const requests: LeaveRequest[] = data.data.map((item: any) => ({
+            id: String(item.id),
+            leaveType: item.type,
+            description: item.reason || "-",
+            duration: item.days,
+            startDate: new Date(item.startDate).toLocaleDateString(),
+            endDate: new Date(item.endDate).toLocaleDateString(),
+            appliedDate: new Date().toLocaleDateString(),
+            status: item.status === "Approved" ? "approved" : 
+                    item.status === "Pending" ? "pending" : "rejected",
+            approvedBy: item.approvedBy || undefined,
+            comments: item.reason,
+          }));
+          setLeaveRequests(requests);
+
+          // Calculate stats
+          const approved = requests.filter(r => r.status === "approved").length;
+          const pending = requests.filter(r => r.status === "pending").length;
+          const totalDays = requests.reduce((sum, r) => sum + r.duration, 0);
+          
+          setLeaveStats({
+            totalApplied: totalDays,
+            approved,
+            pending,
+            activeRequests: pending,
+          });
+
+          // Calculate chart data
+          const approvedCount = requests.filter(r => r.status === "approved").length;
+          const pendingCount = requests.filter(r => r.status === "pending").length;
+          const rejectedCount = requests.filter(r => r.status === "rejected").length;
+          const total = Math.max(approvedCount + pendingCount + rejectedCount, 1);
+
+          setChartData([
+            { 
+              type: "Approved", 
+              count: approvedCount, 
+              percentage: Math.round((approvedCount / total) * 100), 
+              color: "green" 
+            },
+            { 
+              type: "Pending", 
+              count: pendingCount, 
+              percentage: Math.round((pendingCount / total) * 100), 
+              color: "yellow" 
+            },
+            { 
+              type: "Rejected", 
+              count: rejectedCount, 
+              percentage: Math.round((rejectedCount / total) * 100), 
+              color: "red" 
+            },
+          ]);
+
+          // Prepare calendar data - expand to include all days in each leave range
+          const calendarDays: Array<{date: string; status: string; type: string}> = [];
+          data.data.forEach((item: any) => {
+            const start = new Date(item.startDate);
+            const end = new Date(item.endDate);
+            const status = item.status.toLowerCase();
+            const type = item.type;
+            
+            // Add each day in the range
+            for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+              calendarDays.push({
+                date: d.toISOString().split('T')[0],
+                status: status,
+                type: type,
+              });
+            }
+          });
+          setLeaveDays(calendarDays);
+
+          // Calculate trend data (last 6 months)
+          const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+          const now = new Date();
+          const trends = [];
+          
+          for (let i = 5; i >= 0; i--) {
+            const targetDate = new Date(now.getFullYear(), now.getMonth() - i, 1);
+            const monthKey = `${monthNames[targetDate.getMonth()]} ${targetDate.getFullYear()}`;
+            
+            const monthRequests = requests.filter(r => {
+              const reqDate = new Date(r.appliedDate);
+              return reqDate.getMonth() === targetDate.getMonth() && 
+                     reqDate.getFullYear() === targetDate.getFullYear();
+            });
+
+            trends.push({
+              month: monthKey,
+              approved: monthRequests.filter(r => r.status === "approved").length,
+              pending: monthRequests.filter(r => r.status === "pending").length,
+              rejected: monthRequests.filter(r => r.status === "rejected").length,
             });
           }
+          setTrendData(trends);
+
+          // Generate notifications
+          const notifs: LeaveNotification[] = [];
+          
+          // Recent approvals
+          const recentApproved = requests.filter(r => r.status === "approved").slice(0, 2);
+          recentApproved.forEach(r => {
+            notifs.push({
+              id: `approved-${r.id}`,
+              title: "Leave Approved",
+              message: `Your ${r.leaveType} from ${r.startDate} to ${r.endDate} has been approved`,
+              type: "success",
+              timestamp: "2 hours ago",
+              read: false,
+            });
+          });
+
+          // Recent rejections
+          const recentRejected = requests.filter(r => r.status === "rejected").slice(0, 2);
+          recentRejected.forEach(r => {
+            notifs.push({
+              id: `rejected-${r.id}`,
+              title: "Leave Rejected",
+              message: `Your ${r.leaveType} from ${r.startDate} to ${r.endDate} has been rejected`,
+              type: "error",
+              timestamp: "1 hour ago",
+              read: false,
+            });
+          });
+
+          // Pending requests
+          const recentPending = requests.filter(r => r.status === "pending").slice(0, 2);
+          recentPending.forEach(r => {
+            notifs.push({
+              id: `pending-${r.id}`,
+              title: "Leave Request Pending",
+              message: `Your ${r.leaveType} request from ${r.startDate} to ${r.endDate} is awaiting approval`,
+              type: "pending",
+              timestamp: "5 hours ago",
+              read: false,
+            });
+          });
+
+          setNotifications(notifs);
+
+          // Calculate used leaves by type directly from requests
+          const usedAnnual = requests.filter(r => r.leaveType.toLowerCase().includes('annual') && r.status === 'approved')
+            .reduce((sum, r) => sum + r.duration, 0);
+          const usedSick = requests.filter(r => r.leaveType.toLowerCase().includes('sick') && r.status === 'approved')
+            .reduce((sum, r) => sum + r.duration, 0);
+          const usedCasual = requests.filter(r => r.leaveType.toLowerCase().includes('casual') && r.status === 'approved')
+            .reduce((sum, r) => sum + r.duration, 0);
+          const usedEmergency = requests.filter(r => r.leaveType.toLowerCase().includes('emergency') && r.status === 'approved')
+            .reduce((sum, r) => sum + r.duration, 0);
+
+          // Get current month for monthly calculations
+          const currentMonth = new Date().getMonth();
+          const monthlyMultiplier = currentMonth + 1; // Months passed in year
+
+          // Set leave balances regardless of employee API response
+          setLeaveBalances([
+            {
+              type: "Annual Leave",
+              total: 14,
+              used: usedAnnual,
+              remaining: Math.max(14 - usedAnnual, 0),
+              description: "14 days per year",
+            },
+            {
+              type: "Sick Leave",
+              total: 3 * monthlyMultiplier,
+              used: usedSick,
+              remaining: Math.max((3 * monthlyMultiplier) - usedSick, 0),
+              description: "3 days per month",
+            },
+            {
+              type: "Casual Leave",
+              total: 2 * monthlyMultiplier,
+              used: usedCasual,
+              remaining: Math.max((2 * monthlyMultiplier) - usedCasual, 0),
+              description: "2 days per month",
+            },
+            {
+              type: "Emergency Leave",
+              total: 1 * monthlyMultiplier,
+              used: usedEmergency,
+              remaining: Math.max((1 * monthlyMultiplier) - usedEmergency, 0),
+              description: "1 day per month",
+            },
+          ]);
+        } else {
+          // If no data from API, show default balances
+          const currentMonth = new Date().getMonth();
+          const monthlyMultiplier = currentMonth + 1;
+          
+          setLeaveBalances([
+            {
+              type: "Annual Leave",
+              total: 14,
+              used: 0,
+              remaining: 14,
+              description: "14 days per year",
+            },
+            {
+              type: "Sick Leave",
+              total: 3 * monthlyMultiplier,
+              used: 0,
+              remaining: 3 * monthlyMultiplier,
+              description: "3 days per month",
+            },
+            {
+              type: "Casual Leave",
+              total: 2 * monthlyMultiplier,
+              used: 0,
+              remaining: 2 * monthlyMultiplier,
+              description: "2 days per month",
+            },
+            {
+              type: "Emergency Leave",
+              total: 1 * monthlyMultiplier,
+              used: 0,
+              remaining: 1 * monthlyMultiplier,
+              description: "1 day per month",
+            },
+          ]);
         }
+
       } catch (error) {
         console.error("Failed to fetch leave data:", error);
+        // Keep default/empty data on error
+      } finally {
+        setLoading(false);
       }
     };
 
@@ -196,18 +306,15 @@ export default function LeavePage() {
   };
 
   const handleViewCalendar = () => {
-    // TODO: Implement calendar view
-    alert("Calendar view - Coming soon!");
-  };
-
-  const handleCheckPolicy = () => {
-    // TODO: Implement policy viewer
-    alert("Leave policy - Coming soon!");
+    // Scroll to calendar section
+    const calendarSection = document.querySelector('[data-calendar]');
+    if (calendarSection) {
+      calendarSection.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
   };
 
   const handleEmergency = () => {
     setIsFormOpen(true);
-    // TODO: Set form to emergency mode
   };
 
   const handleFormSubmit = (formData: LeaveFormData) => {
@@ -245,6 +352,17 @@ export default function LeavePage() {
     setNotifications(notifications.filter((notif) => notif.id !== id));
   };
 
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-orange-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Loading leave data...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className={leaveStyles.container.base}>
       {/* Header with CTA */}
@@ -271,13 +389,7 @@ export default function LeavePage() {
       <div className={leaveStyles.grid.main}>
         {/* Leave Distribution Chart - Large Display */}
         <div className="lg:col-span-2">
-          <LeaveCharts
-            data={[
-              { type: "Approved", count: 4, percentage: 4, color: "green" },
-              { type: "Pending", count: 92, percentage: 96, color: "yellow" },
-              { type: "Rejected", count: 0, percentage: 0, color: "red" },
-            ]}
-          />
+          <LeaveCharts data={chartData} />
         </div>
 
         {/* Top-right: Quick Actions only (leave balance & notifications moved below) */}
@@ -285,7 +397,6 @@ export default function LeavePage() {
           <QuickActions
             onRequestLeave={handleRequestLeave}
             onViewCalendar={handleViewCalendar}
-            onCheckPolicy={handleCheckPolicy}
             onEmergency={handleEmergency}
           />
         </div>
@@ -294,12 +405,12 @@ export default function LeavePage() {
       {/* Spotlight area under charts: empty visual area + right column for Balance & Notifications */}
       <div className="grid grid-cols-1 lg:grid-cols-1 gap-4 lg:gap-6 my-6">
         {/* Full-width area: notifications (left) horizontal + leave balance (right) - no extra gap */}
-        <div className={`${leaveStyles.card.base} p-0` }>
-          <div className="grid grid-cols-2 gap-0">
+        <div className={`${leaveStyles.card.base} p-0`}>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-0">
             <div className="p-4">
               <LeaveBalanceCard balances={leaveBalances} />
             </div>
-            <div className="border-l border-orange-100/20 p-4">
+            <div className="border-t lg:border-t-0 lg:border-l border-orange-100/20 p-4">
               <LeaveNotifications
                 notifications={notifications}
                 onMarkAsRead={handleMarkNotificationAsRead}
@@ -312,88 +423,14 @@ export default function LeavePage() {
       </div>
 
       {/* Trend Analysis - Important for Decision Making */}
-      <TrendAnalysis
-        data={[
-          {
-            month: "Aug 2023",
-            approved: 5,
-            pending: 2,
-            rejected: 0,
-          },
-          {
-            month: "Sep 2023",
-            approved: 3,
-            pending: 1,
-            rejected: 0,
-          },
-          {
-            month: "Oct 2023",
-            approved: 4,
-            pending: 3,
-            rejected: 1,
-          },
-          {
-            month: "Nov 2023",
-            approved: 6,
-            pending: 2,
-            rejected: 0,
-          },
-          {
-            month: "Dec 2023",
-            approved: 2,
-            pending: 1,
-            rejected: 0,
-          },
-          {
-            month: "Jan 2024",
-            approved: 4,
-            pending: 92,
-            rejected: 0,
-          },
-        ]}
-      />
+      <TrendAnalysis data={trendData} />
 
       {/* Leave Calendar & Notifications - Mid Section */}
-      <div className={leaveStyles.grid.main}>
+      <div className={leaveStyles.grid.main} data-calendar>
         {/* Leave Calendar */}
         <div className="lg:col-span-2">
-          <LeaveCalendar
-            leaveDays={[
-              {
-                date: "2024-01-10",
-                status: "approved",
-                type: "Sick Leave",
-              },
-              {
-                date: "2024-01-11",
-                status: "approved",
-                type: "Sick Leave",
-              },
-              {
-                date: "2024-01-12",
-                status: "approved",
-                type: "Sick Leave",
-              },
-              {
-                date: "2024-01-25",
-                status: "pending",
-                type: "Annual Leave",
-              },
-              {
-                date: "2024-01-26",
-                status: "pending",
-                type: "Annual Leave",
-              },
-              {
-                date: "2024-02-05",
-                status: "approved",
-                type: "Personal Leave",
-              },
-            ]}
-          />
+          <LeaveCalendar leaveDays={leaveDays} />
         </div>
-
-        {/* right column intentionally left empty (notifications moved above) */}
       </div>
 
       {/* Leave History - At Bottom */}

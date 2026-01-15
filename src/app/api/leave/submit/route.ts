@@ -24,6 +24,15 @@ export async function POST(req: Request) {
       );
     }
 
+    // Normalize leave type - capitalize first letter
+    const leaveTypeMap: Record<string, string> = {
+      annual: "Annual",
+      sick: "Sick",
+      casual: "Casual",
+      emergency: "Emergency",
+    };
+    const normalizedType = leaveTypeMap[type.toLowerCase()] || type;
+
     // Get employee from database using email
     const employee = await prisma.employee.findUnique({
       where: { email: session.user.email },
@@ -56,34 +65,14 @@ export async function POST(req: Request) {
       )
     );
 
-    // Check leave balance
+    // Check leave balance (note: we allow exceeding balance with user confirmation)
     const currentBalance = employee.leaveBalance ?? 10;
-    if (currentBalance < days) {
-      return NextResponse.json(
-        {
-          error: `Insufficient leave balance. You have ${currentBalance} days available but requested ${days} days.`,
-        },
-        { status: 400 }
-      );
-    }
 
-    // Check for overlapping approved leaves in same department
-    const overlaps = await prisma.leave.count({
-      where: {
-        status: "Approved",
-        employee: { department: employee.department },
-        OR: [
-          {
-            startDate: { lte: endDateObj },
-            endDate: { gte: startDateObj },
-          },
-        ],
-      },
-    });
-
-    // Auto-approve if within limits, otherwise keep pending
+    // Auto-approve ONLY if:
+    // 1. Leave is exactly 1 day
+    // 2. Employee has sufficient balance
     let status = "Pending";
-    if (overlaps < 2) {
+    if (days === 1 && currentBalance >= days) {
       status = "Approved";
     }
 
@@ -92,13 +81,13 @@ export async function POST(req: Request) {
       // Create leave record
       const createdLeave = await tx.leave.create({
         data: {
-          type,
+          type: normalizedType,
           startDate: startDateObj,
           endDate: endDateObj,
           reason: reason || null,
           status,
           employeeId: employee.id,
-          isPaid: /annual|sick|vacation/i.test(type),
+          isPaid: /annual|sick|casual/i.test(normalizedType),
         },
       });
 
@@ -129,7 +118,7 @@ export async function POST(req: Request) {
             leaveId: createdLeave.id,
             employeeId: employee.id,
             employeeName: `${employee.firstName} ${employee.lastName}`,
-            leaveType: type,
+            leaveType: normalizedType,
             startDate: startDateObj.toISOString(),
             endDate: endDateObj.toISOString(),
             days,

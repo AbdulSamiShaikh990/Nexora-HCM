@@ -1,19 +1,17 @@
 "use client";
 
-import { Plus, Calendar, FileText, AlertTriangle } from "lucide-react";
+import { Plus, Calendar, AlertTriangle } from "lucide-react";
 import { leaveStyles } from "./styles";
 
 interface QuickActionsProps {
   onRequestLeave: () => void;
   onViewCalendar: () => void;
-  onCheckPolicy: () => void;
   onEmergency: () => void;
 }
 
 export default function QuickActions({
   onRequestLeave,
   onViewCalendar,
-  onCheckPolicy,
   onEmergency,
 }: QuickActionsProps) {
   const actions = [
@@ -32,14 +30,6 @@ export default function QuickActions({
       onClick: onViewCalendar,
       color: "text-green-600",
       bgColor: "bg-green-50",
-    },
-    {
-      icon: FileText,
-      label: "Check Leave Policy",
-      description: "Review company policies",
-      onClick: onCheckPolicy,
-      color: "text-orange-600",
-      bgColor: "bg-orange-50",
     },
     {
       icon: AlertTriangle,

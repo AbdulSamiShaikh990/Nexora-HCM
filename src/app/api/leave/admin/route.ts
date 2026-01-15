@@ -54,33 +54,75 @@ export async function GET(req: Request) {
       prisma.leave.count({ where }),
     ]);
 
-    const data = leaves.map((leave: any) => ({
-      id: leave.id,
-      type: leave.type,
-      startDate: leave.startDate.toISOString().split("T")[0],
-      endDate: leave.endDate.toISOString().split("T")[0],
-      days: Math.max(
+    // Get current month for calculations
+    const now = new Date();
+    const monthsInYear = now.getMonth() + 1;
+
+    const data = leaves.map((leave: any) => {
+      const days = Math.max(
         1,
         Math.ceil(
           (leave.endDate.getTime() - leave.startDate.getTime() + 1) /
             (1000 * 60 * 60 * 24)
         )
-      ),
-      reason: leave.reason || "-",
-      status: leave.status,
-      employeeId: leave.employeeId,
-      employeeName: `${leave.employee.firstName} ${leave.employee.lastName}`,
-      employeeEmail: leave.employee.email,
-      employeeJobTitle: leave.employee.jobTitle,
-      employeePhone: leave.employee.phone || "-",
-      department: leave.employee.department,
-      leaveBalance: leave.employee.leaveBalance || 0,
-      isPaid: leave.isPaid,
-      approvedBy: "-",
-      approvedAt: null,
-      approverComment: "-",
-      createdAt: new Date().toISOString(),
-    }));
+      );
+
+      // Calculate total balance for this leave type
+      let totalBalance = 0;
+      if (leave.type === "Annual") {
+        totalBalance = 14;
+      } else if (leave.type === "Sick") {
+        totalBalance = 3 * monthsInYear;
+      } else if (leave.type === "Casual") {
+        totalBalance = 2 * monthsInYear;
+      } else if (leave.type === "Emergency") {
+        totalBalance = 1 * monthsInYear;
+      }
+
+      // Calculate used leaves for this type
+      const usedLeaves = leaves
+        .filter(
+          (l: any) =>
+            l.type === leave.type &&
+            l.status === "Approved" &&
+            l.employeeId === leave.employeeId
+        )
+        .reduce((sum, l: any) => {
+          const d = Math.max(
+            1,
+            Math.ceil(
+              (l.endDate.getTime() - l.startDate.getTime() + 1) /
+                (1000 * 60 * 60 * 24)
+            )
+          );
+          return sum + d;
+        }, 0);
+
+      const remaining = Math.max(0, totalBalance - usedLeaves);
+
+      return {
+        id: leave.id,
+        type: leave.type,
+        startDate: leave.startDate.toISOString().split("T")[0],
+        endDate: leave.endDate.toISOString().split("T")[0],
+        days,
+        reason: leave.reason || "-",
+        status: leave.status,
+        employeeId: leave.employeeId,
+        employee: `${leave.employee.firstName} ${leave.employee.lastName}`,
+        employeeEmail: leave.employee.email,
+        employeeJobTitle: leave.employee.jobTitle,
+        employeePhone: leave.employee.phone || "-",
+        department: leave.employee.department,
+        leaveBalance: remaining, // Type-specific remaining balance
+        totalLeaveBalance: totalBalance, // Total available for this type
+        isPaid: leave.isPaid,
+        approvedBy: "-",
+        approvedAt: null,
+        approverComment: "-",
+        createdAt: new Date().toISOString(),
+      };
+    });
 
     // Get stats
     const stats = {
@@ -122,7 +164,7 @@ export async function PUT(req: Request) {
     }
 
     const body = await req.json();
-    const { id, status, approverComment } = body;
+    const { id, status, approverComment, paid, paidDays } = body;
 
     if (!id || !status) {
       return NextResponse.json(
@@ -167,6 +209,8 @@ export async function PUT(req: Request) {
         where: { id: parseInt(id) },
         data: {
           status,
+          // Only update isPaid since Leave model doesn't have paidDays
+          isPaid: paid !== undefined ? paid : undefined,
         },
       });
 

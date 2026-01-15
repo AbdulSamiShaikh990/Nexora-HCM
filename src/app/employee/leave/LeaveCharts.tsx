@@ -62,9 +62,48 @@ export default function LeaveCharts({ data }: LeaveChartsProps) {
               }}
             >
               {(() => {
+                // Check if all counts are 0
+                const totalCount = data.reduce((sum, item) => sum + item.count, 0);
+                
+                if (totalCount === 0) {
+                  // Show empty state circle
+                  return (
+                    <circle
+                      cx="100"
+                      cy="100"
+                      r="80"
+                      fill="rgb(229, 231, 235)"
+                      className="opacity-50"
+                    />
+                  );
+                }
+
+                // Filter out items with 0 count
+                const activeData = data.filter(item => item.count > 0);
+                
+                // If only one item has data, draw a full circle
+                if (activeData.length === 1) {
+                  const colorMap: Record<string, string> = {
+                    "Approved": "rgb(34, 197, 94)",
+                    "Pending": "rgb(234, 179, 8)",
+                    "Rejected": "rgb(239, 68, 68)",
+                    "Active": "rgb(249, 115, 22)",
+                  };
+                  return (
+                    <circle
+                      cx="100"
+                      cy="100"
+                      r="80"
+                      fill={colorMap[activeData[0].type] || colorMap["Active"]}
+                      className="hover:opacity-80 transition-opacity cursor-pointer"
+                    />
+                  );
+                }
+
                 let cumulativeAngle = 0;
-                return data.map((item, index) => {
-                  const sliceAngle = (item.percentage / 100) * 360;
+                return activeData.map((item, index) => {
+                  const itemPercentage = (item.count / totalCount) * 100;
+                  const sliceAngle = (itemPercentage / 100) * 360;
                   const startAngle = cumulativeAngle;
                   const endAngle = cumulativeAngle + sliceAngle;
                   cumulativeAngle = endAngle;
