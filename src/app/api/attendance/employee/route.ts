@@ -355,7 +355,6 @@ export async function POST(req: Request) {
     todayStart.setUTCHours(todayStart.getUTCHours() - 5);
     const todayEnd = new Date(todayStart.getTime() + (24 * 60 * 60 * 1000) - 1);
 
-    // @ts-expect-error - Prisma type will be available after server restart
     const remoteWorkApproved = await prisma.remoteWorkRequest.findFirst({
       where: {
         employeeId: employee.id,

@@ -97,30 +97,34 @@ export default function Page() {
   async function load() {
     setLoading(true);
     try {
-      const res = await fetch(`/api/leave?${query}`, { cache: "no-store" });
+      const params = new URLSearchParams();
+      if (status && status !== "all") params.set("status", status);
+      if (department && department !== "all") params.set("department", department);
+      params.set("page", String(page));
+      params.set("limit", "10");
+
+      const res = await fetch(`/api/leave/admin?${params.toString()}`, { 
+        cache: "no-store",
+        headers: { "Content-Type": "application/json" }
+      });
+      if (!res.ok) throw new Error(`API Error: ${res.statusText}`);
+      
       const json = await res.json();
-      const nextData: LeaveRow[] = json.data || [];
-      // Detect new leaves (compared to previous result)
-      if (prevDataRef.current) {
-        const prevIds = new Set(prevDataRef.current.map((r) => r.id));
-        const newOnes = nextData.filter((r) => !prevIds.has(r.id));
-        if (newOnes.length > 0) {
-          pushToast(`${newOnes.length} new leave request${newOnes.length > 1 ? "s" : ""} detected`, "info");
-        }
-      }
-      setData(nextData);
-      prevDataRef.current = nextData;
-      setTotalPages(json.pagination?.totalPages || 1);
-      setStats(json.stats || null);
-      setCalendar(json.calendar || {});
-      setInsights(json.insights || []);
-      setAlerts(json.alerts || null);
-      // Surface alert summary
-      if (json.alerts) {
-        const o = json.alerts.overlappingDepartments?.filter?.((x: any) => x.count > 1) || [];
-        if (o.length > 0) pushToast(`Overlaps detected in ${o.length} department(s)`, "warning");
-        if ((json.alerts.nearingLeaveLimits || []).length > 0) pushToast(`Some employees nearing leave limits`, "warning");
-      }
+      if (!json.success) throw new Error(json.error || "Failed to load leaves");
+
+      setData(json.data);
+      setStats({
+        totalThisMonth: json.stats.total,
+        pendingThisMonth: json.stats.pending,
+        avgPerEmployee: Math.round(json.stats.total / Math.max(1, json.stats.total)),
+      });
+      setTotalPages(json.pagination.totalPages);
+      setError("");
+    } catch (e: any) {
+      console.error("[Load Error]", e);
+      setError(e.message || "Failed to load leave requests");
+      setData([]);
+      pushToast(e.message || "Failed to load data", "error");
     } finally {
       setLoading(false);
     }
@@ -129,36 +133,77 @@ export default function Page() {
   useEffect(() => {
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [query]);
+  }, [page, status, department]);
 
   async function updateStatus(id: number, next: "Approved" | "Rejected") {
-    const prev = data;
-    let payload: any = { id, status: next };
     if (next === "Rejected") {
-      // Show modal to capture reason
       setRejectModal({ id, reason: "" });
       return;
     }
+
+    const prev = data;
     setData((d) => d.map((r) => (r.id === id ? { ...r, status: next } : r)));
+
     try {
-      const res = await fetch("/api/leave", {
+      const res = await fetch("/api/leave/admin", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
+        body: JSON.stringify({
+          id,
+          status: next,
+          approverComment: "",
+        }),
       });
+
       if (!res.ok) {
         const j = await res.json().catch(() => ({}));
-        throw new Error(j.error || "Failed");
+        throw new Error(j.error || "Failed to update leave");
       }
-      if (next === "Approved") {
-        pushToast("Leave approved", "success");
-        await load(); // refresh to show updated remaining balance
-      }
+
+      const result = await res.json();
+      pushToast(result.data.message, "success");
+      await load(); // Refresh data
     } catch (e) {
       setData(prev);
-      setError((e as Error).message);
+      const message = (e as Error).message;
+      setError(message);
+      pushToast(message, "error");
       setTimeout(() => setError(""), 3000);
-      pushToast((e as Error).message, "error");
+    }
+  }
+
+  async function submitReject() {
+    if (!rejectModal.id) return;
+    const prev = data;
+    setData((d) =>
+      d.map((r) =>
+        r.id === rejectModal.id ? { ...r, status: "Rejected" } : r
+      )
+    );
+    try {
+      const res = await fetch("/api/leave/admin", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: rejectModal.id,
+          status: "Rejected",
+          approverComment: rejectModal.reason,
+        }),
+      });
+
+      if (!res.ok) {
+        const j = await res.json().catch(() => ({}));
+        throw new Error(j.error || "Failed to reject leave");
+      }
+
+      pushToast("Leave rejected successfully", "success");
+      setRejectModal({ id: null, reason: "" });
+      await load();
+    } catch (e) {
+      setData(prev);
+      const message = (e as Error).message;
+      setError(message);
+      pushToast(message, "error");
     }
   }
 
