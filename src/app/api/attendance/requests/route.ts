@@ -214,23 +214,60 @@ export async function PUT(req: Request) {
     const existing = await prisma.attendance.findFirst({
       where: { employeeId: correction.employeeId, date: attendanceDate },
     });
+    
+    // Helper function to determine status based on check-in time
+    const determineStatus = (checkIn: Date | null, checkOut: Date | null): string => {
+      if (!checkIn) return "absent";
+      
+      // Get Pakistan time (UTC+5)
+      const pakHours = checkIn.getUTCHours() + 5;
+      const pakMinutes = checkIn.getUTCMinutes();
+      const checkInMinutes = (pakHours >= 24 ? pakHours - 24 : pakHours) * 60 + pakMinutes;
+      
+      // Shift starts at 9:00 AM, late threshold is 15 minutes
+      const shiftStartMinutes = 9 * 60; // 9:00 AM
+      const lateThreshold = 15;
+      
+      // Check if worked less than 4 hours
+      if (checkIn && checkOut) {
+        const hoursWorked = (checkOut.getTime() - checkIn.getTime()) / (1000 * 60 * 60);
+        if (hoursWorked < 4 && hoursWorked > 0) {
+          return "half-day";
+        }
+      }
+      
+      if (checkInMinutes > shiftStartMinutes + lateThreshold) {
+        return "late";
+      }
+      
+      return "present";
+    };
+    
     if (existing) {
       const updateData: { checkIn?: Date; checkOut?: Date; status?: string } = {};
       if (correction.requestedCheckIn) updateData.checkIn = correction.requestedCheckIn;
       if (correction.requestedCheckOut) updateData.checkOut = correction.requestedCheckOut;
-      if (updateData.checkIn || updateData.checkOut) updateData.status = "Present";
+      
+      // Calculate proper status
+      const finalCheckIn = updateData.checkIn || existing.checkIn;
+      const finalCheckOut = updateData.checkOut || existing.checkOut;
+      updateData.status = determineStatus(finalCheckIn, finalCheckOut);
+      
       await prisma.attendance.update({
         where: { id: existing.id },
         data: updateData,
       });
     } else {
+      const checkIn = correction.requestedCheckIn || null;
+      const checkOut = correction.requestedCheckOut || null;
+      
       await prisma.attendance.create({
         data: {
           employeeId: correction.employeeId,
           date: attendanceDate,
-          checkIn: correction.requestedCheckIn || null,
-          checkOut: correction.requestedCheckOut || null,
-          status: "Present",
+          checkIn,
+          checkOut,
+          status: determineStatus(checkIn, checkOut),
         },
       });
     }

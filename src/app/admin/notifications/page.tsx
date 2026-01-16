@@ -206,12 +206,12 @@ export default function NotificationsPage() {
         </div>
       ) : (
         <div className="space-y-4">
-          {filteredNotifications.map((notification) => {
+          {filteredNotifications.map((notification, index) => {
             const typeInfo = getTypeLabel(notification.type);
             
             return (
               <div
-                key={notification.id}
+                key={`${notification.type}-${notification.id}-${index}`}
                 className="bg-white rounded-xl p-5 border border-gray-200 hover:border-purple-300 transition-colors"
               >
                 <div className="flex items-start justify-between">
