@@ -17,6 +17,8 @@
     "@auth/prisma-adapter": "^2.11.0",
     "@prisma/client": "^6.17.1",
     "bcryptjs": "^3.0.2",
+    "jspdf": "^4.0.0",
+    "jspdf-autotable": "^5.0.7",
     "lucide-react": "^0.546.0",
     "next": "15.5.7",
     "next-auth": "^4.24.11",

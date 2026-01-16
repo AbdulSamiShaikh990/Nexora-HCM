@@ -136,6 +136,8 @@ export async function GET(req: Request) {
     const { searchParams } = new URL(req.url);
     const month = searchParams.get("month"); // YYYY-MM format
     const year = searchParams.get("year");
+    const customStartDate = searchParams.get("startDate"); // YYYY-MM-DD format
+    const customEndDate = searchParams.get("endDate"); // YYYY-MM-DD format
     
     // Default to current month
     const now = new Date();
@@ -153,8 +155,31 @@ export async function GET(req: Request) {
       if (!Number.isNaN(parsedYear)) targetYear = parsedYear;
     }
     
-    const startOfMonth = new Date(Date.UTC(targetYear, targetMonth, 1, 0, 0, 0));
-    const endOfMonth = new Date(Date.UTC(targetYear, targetMonth + 1, 0, 23, 59, 59));
+    // Use custom date range if provided, otherwise use month range
+    let startOfMonth: Date;
+    let endOfMonth: Date;
+    
+    if (customStartDate && customEndDate) {
+      // Custom date range provided
+      const [sYear, sMonth, sDay] = customStartDate.split("-").map(Number);
+      const [eYear, eMonth, eDay] = customEndDate.split("-").map(Number);
+      startOfMonth = new Date(Date.UTC(sYear, sMonth - 1, sDay, 0, 0, 0));
+      endOfMonth = new Date(Date.UTC(eYear, eMonth - 1, eDay, 23, 59, 59));
+    } else if (customStartDate) {
+      // Only start date provided - use start date to end of month
+      const [sYear, sMonth, sDay] = customStartDate.split("-").map(Number);
+      startOfMonth = new Date(Date.UTC(sYear, sMonth - 1, sDay, 0, 0, 0));
+      endOfMonth = new Date(Date.UTC(targetYear, targetMonth + 1, 0, 23, 59, 59));
+    } else if (customEndDate) {
+      // Only end date provided - use start of month to end date
+      startOfMonth = new Date(Date.UTC(targetYear, targetMonth, 1, 0, 0, 0));
+      const [eYear, eMonth, eDay] = customEndDate.split("-").map(Number);
+      endOfMonth = new Date(Date.UTC(eYear, eMonth - 1, eDay, 23, 59, 59));
+    } else {
+      // No custom dates - use full month
+      startOfMonth = new Date(Date.UTC(targetYear, targetMonth, 1, 0, 0, 0));
+      endOfMonth = new Date(Date.UTC(targetYear, targetMonth + 1, 0, 23, 59, 59));
+    }
     
     // Today's date for current status - use Pakistan timezone (UTC+5)
     // Current time in Pakistan is now + 5 hours
@@ -207,9 +232,6 @@ export async function GET(req: Request) {
     let absentDays = 0;
     let halfDays = 0;
 
-    const [shiftEndH, shiftEndM] = SHIFT_END.split(":").map(Number);
-    const shiftEndMinutes = shiftEndH * 60 + shiftEndM;
-
     monthlyRecords.forEach((record) => {
       const status = (record.status || "").toLowerCase();
       if (status === "present") presentDays++;
@@ -224,45 +246,96 @@ export async function GET(req: Request) {
           halfDays++;
         }
 
-        // Overtime: only count when the employee checked out after shift end (Pakistan time).
-        const checkOutMinutes = getPakistanMinutes(record.checkOut);
-
-        // Overtime is time worked beyond shift end
-        if (checkOutMinutes > shiftEndMinutes) {
-          overtimeMinutes += checkOutMinutes - shiftEndMinutes;
+        // Overtime: only count when total hours worked > 8 hours
+        // Overtime = total hours - 8
+        if (hoursWorked > 8) {
+          overtimeMinutes += (hoursWorked - 8) * 60;
         }
       }
     });
 
+    // Calculate total working days in the date range (exclude weekends)
+    // Only count up to today - don't count future dates
+    const today = new Date();
+    today.setHours(23, 59, 59, 999); // End of today
+    
+    const countUntil = endOfMonth < today ? endOfMonth : today;
+    
+    let totalWorkingDays = 0;
+    const currentDate = new Date(startOfMonth);
+    while (currentDate <= countUntil) {
+      const dayOfWeek = currentDate.getDay();
+      // Count weekdays only (Monday to Friday)
+      if (dayOfWeek !== 0 && dayOfWeek !== 6) {
+        totalWorkingDays++;
+      }
+      currentDate.setDate(currentDate.getDate() + 1);
+    }
+
+    // Absent days = total working days - days with records
+    const recordedDays = presentDays + lateDays + absentDays + halfDays;
+    const actualAbsentDays = Math.max(0, totalWorkingDays - recordedDays + absentDays);
+    
     const workingDays = presentDays + lateDays + halfDays;
-    const totalDays = workingDays + absentDays;
-    const attendanceRate = totalDays > 0 ? ((workingDays / totalDays) * 100) : 0;
+    const attendanceRate = totalWorkingDays > 0 ? ((workingDays / totalWorkingDays) * 100) : 0;
 
-    // Format records for frontend
-    const formattedRecords = monthlyRecords.map((record) => {
-      const hoursWorked = calculateHoursWorked(record.checkIn, record.checkOut);
-
-      let otMinutes = 0;
-      if (record.checkOut) {
-        const checkOutMinutes = getPakistanMinutes(record.checkOut);
+    // Generate all dates in range and mark absent days
+    const allDates: Array<{
+      id: number;
+      date: string;
+      checkIn: string | null;
+      checkOut: string | null;
+      totalHours: number;
+      overtime: number;
+      breakTime: number;
+      status: string;
+    }> = [];
+    
+    const datePointer = new Date(startOfMonth);
+    let recordIndex = 0;
+    
+    while (datePointer <= countUntil) {
+      const dayOfWeek = datePointer.getDay();
+      const dateStr = formatDate(datePointer);
+      
+      // Skip weekends
+      if (dayOfWeek !== 0 && dayOfWeek !== 6) {
+        const existingRecord = monthlyRecords.find(r => formatDate(r.date) === dateStr);
         
-        // Overtime is time worked beyond shift end
-        if (checkOutMinutes > shiftEndMinutes) {
-          otMinutes = checkOutMinutes - shiftEndMinutes;
+        if (existingRecord) {
+          const hoursWorked = calculateHoursWorked(existingRecord.checkIn, existingRecord.checkOut);
+          let otMinutes = 0;
+          if (hoursWorked > 8) {
+            otMinutes = (hoursWorked - 8) * 60;
+          }
+          
+          allDates.push({
+            id: existingRecord.id,
+            date: dateStr,
+            checkIn: existingRecord.checkIn ? formatTime(existingRecord.checkIn) : null,
+            checkOut: existingRecord.checkOut ? formatTime(existingRecord.checkOut) : null,
+            totalHours: Math.round(hoursWorked * 100) / 100,
+            overtime: Math.round((otMinutes / 60) * 100) / 100,
+            breakTime: 1,
+            status: (existingRecord.status || "").toLowerCase(),
+          });
+        } else {
+          // No record for this working day = absent
+          allDates.push({
+            id: recordIndex++,
+            date: dateStr,
+            checkIn: null,
+            checkOut: null,
+            totalHours: 0,
+            overtime: 0,
+            breakTime: 0,
+            status: "absent",
+          });
         }
       }
       
-      return {
-        id: record.id,
-        date: formatDate(record.date),
-        checkIn: record.checkIn ? formatTime(record.checkIn) : null,
-        checkOut: record.checkOut ? formatTime(record.checkOut) : null,
-        totalHours: Math.round(hoursWorked * 100) / 100,
-        overtime: Math.round((otMinutes / 60) * 100) / 100,
-        breakTime: 1, // Assume 1 hour break
-        status: (record.status || "").toLowerCase(),
-      };
-    });
+      datePointer.setDate(datePointer.getDate() + 1);
+    }
 
     // Format corrections
     const formattedCorrections = corrections.map((c) => ({
@@ -296,10 +369,10 @@ export async function GET(req: Request) {
         overtimeHours: Math.round((overtimeMinutes / 60) * 10) / 10,
         presentDays,
         lateDays,
-        absentDays,
+        absentDays: actualAbsentDays,
         halfDays,
       },
-      records: formattedRecords,
+      records: allDates.reverse(), // Show most recent first
       corrections: formattedCorrections,
       month: `${targetYear}-${String(targetMonth + 1).padStart(2, "0")}`,
     });

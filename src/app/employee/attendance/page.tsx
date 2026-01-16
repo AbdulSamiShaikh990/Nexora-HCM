@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
 
 // Types
@@ -150,6 +151,30 @@ const getMonthLabel = (month: string) => {
   return d.toLocaleDateString("en-US", { month: "long", year: "numeric" });
 };
 
+const getDateRangeLabel = (startDate: string, endDate: string, defaultMonth: string) => {
+  if (!startDate && !endDate) return getMonthLabel(defaultMonth);
+  
+  if (startDate && endDate) {
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    const startStr = start.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+    const endStr = end.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+    return `${startStr} → ${endStr}`;
+  }
+  
+  if (startDate) {
+    const start = new Date(startDate);
+    return `From ${start.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}`;
+  }
+  
+  if (endDate) {
+    const end = new Date(endDate);
+    return `Until ${end.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}`;
+  }
+  
+  return getMonthLabel(defaultMonth);
+};
+
 export default function AttendancePage() {
   const [data, setData] = useState<AttendanceData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -178,12 +203,44 @@ export default function AttendancePage() {
     endDate: "",
     reason: "",
   });
+  const [mounted, setMounted] = useState(false);
+
+  // Mount check for portal
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  // Lock body scroll when modals are open
+  useEffect(() => {
+    if (showCorrectionModal || showRemoteModal) {
+      // Scroll to top when modal opens
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = 'unset';
+    }
+    return () => {
+      document.body.style.overflow = 'unset';
+    };
+  }, [showCorrectionModal, showRemoteModal]);
+
+  // Update selectedMonth when reportStart changes
+  useEffect(() => {
+    if (reportStart) {
+      const date = new Date(reportStart);
+      const monthStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+      setSelectedMonth(monthStr);
+    }
+  }, [reportStart]);
 
   // Fetch attendance data
   const fetchData = useCallback(async () => {
     try {
       setLoading(true);
-      const res = await fetch(`/api/attendance/employee?month=${selectedMonth}`);
+      let url = `/api/attendance/employee?month=${selectedMonth}`;
+      if (reportStart) url += `&startDate=${reportStart}`;
+      if (reportEnd) url += `&endDate=${reportEnd}`;
+      const res = await fetch(url);
       if (!res.ok) throw new Error("API unavailable");
       const json = await res.json();
       setData(json);
@@ -192,7 +249,7 @@ export default function AttendancePage() {
     } finally {
       setLoading(false);
     }
-  }, [selectedMonth]);
+  }, [selectedMonth, reportStart, reportEnd]);
 
   useEffect(() => {
     fetchData();
@@ -334,9 +391,10 @@ export default function AttendancePage() {
         <div class="muted">${reportRange} • ${data.employee.name} (${data.employee.email})</div>
         <div class="summary">
           <div class="card"><div class="label">Total Hours</div><div class="value">${summary.totalHours}h</div></div>
-          <div class="card"><div class="label">Average Hours</div><div class="value">${summary.avgHours}h</div></div>
-          <div class="card"><div class="label">Attendance Rate</div><div class="value">${summary.attendanceRate}%</div></div>
           <div class="card"><div class="label">Overtime Hours</div><div class="value">${summary.overtimeHours}h</div></div>
+          <div class="card"><div class="label">Late Days</div><div class="value">${summary.lateDays}</div></div>
+          <div class="card"><div class="label">Absent Days</div><div class="value">${summary.absentDays}</div></div>
+          <div class="card"><div class="label">Half Days</div><div class="value">${summary.halfDays}</div></div>
         </div>
         <table>
           <thead>
@@ -470,6 +528,33 @@ export default function AttendancePage() {
 
   // Generate calendar days
   const getCalendarDays = () => {
+    // If custom date range is set, use that range
+    if (reportStart && reportEnd) {
+      const startDate = new Date(reportStart);
+      const endDate = new Date(reportEnd);
+      const days: { day: number; status: string | null; date: string }[] = [];
+      
+      // Get all dates between start and end
+      const currentDate = new Date(startDate);
+      while (currentDate <= endDate) {
+        const year = currentDate.getFullYear();
+        const month = currentDate.getMonth() + 1;
+        const day = currentDate.getDate();
+        const dateStr = `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+        const record = data?.records.find((r) => r.date === dateStr);
+        const isWeekend = currentDate.getDay() === 0 || currentDate.getDay() === 6;
+        const today = new Date();
+        const isPastDay = currentDate < new Date(today.getFullYear(), today.getMonth(), today.getDate());
+        const status = record?.status || (!record && isPastDay && !isWeekend ? "absent" : null);
+        
+        days.push({ day, status, date: dateStr });
+        currentDate.setDate(currentDate.getDate() + 1);
+      }
+      
+      return days;
+    }
+    
+    // Otherwise use the selected month
     const [year, month] = selectedMonth.split("-").map(Number);
     const firstDay = new Date(year, month - 1, 1);
     const lastDay = new Date(year, month, 0);
@@ -477,7 +562,7 @@ export default function AttendancePage() {
     const startDayOfWeek = firstDay.getDay();
     const today = new Date();
     
-    const days: { day: number; status: string | null }[] = [];
+    const days: { day: number; status: string | null; date?: string }[] = [];
     
     for (let i = 0; i < startDayOfWeek; i++) {
       days.push({ day: 0, status: null });
@@ -490,7 +575,7 @@ export default function AttendancePage() {
       const isWeekend = dateObj.getDay() === 0 || dateObj.getDay() === 6;
       const isPastDay = dateObj < new Date(today.getFullYear(), today.getMonth(), today.getDate());
       const status = record?.status || (!record && isPastDay && !isWeekend ? "absent" : null);
-      days.push({ day: d, status });
+      days.push({ day: d, status, date: dateStr });
     }
     
     return days;
@@ -614,43 +699,26 @@ export default function AttendancePage() {
         </p>
       </div>
 
-      {/* Month Selector + Filters */}
+      {/* Date Filters */}
       <div className="flex flex-col gap-3">
-        <div className="flex flex-wrap items-center gap-3">
-          <label className="text-sm font-semibold text-gray-800">Select Month</label>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => shiftMonth(-1)}
-              className="px-3 py-2 rounded-xl border border-gray-200 text-gray-700 hover:bg-gray-50"
-              aria-label="Previous month"
-            >
-              ←
-            </button>
-            <input
-              type="month"
-              value={selectedMonth}
-              onChange={(e) => setSelectedMonth(e.target.value)}
-              className="px-4 py-2 rounded-xl border border-gray-200 focus:ring-2 focus:ring-orange-400 focus:border-transparent bg-white text-gray-900"
-            />
-            <button
-              onClick={() => shiftMonth(1)}
-              className="px-3 py-2 rounded-xl border border-gray-200 text-gray-700 hover:bg-gray-50"
-              aria-label="Next month"
-            >
-              →
-            </button>
-          </div>
-          <div className="flex items-center gap-2 ml-auto">
-            <button
-              onClick={handleExportPdf}
-              className="flex items-center gap-2 px-4 py-2 rounded-xl bg-orange-500 text-white font-medium shadow hover:bg-orange-600"
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-              </svg>
-              Export PDF
-            </button>
-          </div>
+        <div className="flex justify-between items-center">
+          {(reportStart || reportEnd) && (
+            <div className="flex items-center gap-3">
+              <label className="text-sm font-semibold text-gray-800">Date Range:</label>
+              <div className="px-4 py-2 rounded-xl bg-orange-50 border border-orange-200 text-orange-800 font-semibold">
+                {getDateRangeLabel(reportStart, reportEnd, selectedMonth)}
+              </div>
+            </div>
+          )}
+          <button
+            onClick={handleExportPdf}
+            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-orange-500 text-white font-medium shadow hover:bg-orange-600 ml-auto"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+            </svg>
+            Export PDF
+          </button>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
@@ -674,7 +742,14 @@ export default function AttendancePage() {
           </div>
           <div className="flex items-end">
             <button
-              onClick={() => { setReportStart(""); setReportEnd(""); }}
+              onClick={() => { 
+                setReportStart(""); 
+                setReportEnd(""); 
+                // Reset to current month
+                const now = new Date();
+                const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+                setSelectedMonth(currentMonth);
+              }}
               className="px-4 py-2 rounded-xl border border-gray-200 text-gray-700 hover:bg-gray-50 w-full"
             >
               Clear Filters
@@ -794,30 +869,56 @@ export default function AttendancePage() {
       <div className="bg-white rounded-2xl shadow-lg border border-orange-100 p-6">
         <div className="mb-6">
           <h2 className="text-lg font-semibold text-gray-900">Calendar View</h2>
-          <p className="text-sm text-blue-600">Monthly attendance calendar</p>
+          <p className="text-sm text-blue-600">
+            {reportStart && reportEnd 
+              ? `Date range: ${formatDateDisplay(reportStart)} → ${formatDateDisplay(reportEnd)}` 
+              : "Monthly attendance calendar"}
+          </p>
         </div>
         
-        <div className="grid grid-cols-7 gap-2">
-          {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((day) => (
-            <div key={day} className="text-center py-2 text-sm font-semibold text-gray-500">
-              {day}
-            </div>
-          ))}
-          {getCalendarDays().map((day, i) => (
-            <div
-              key={i}
-              className={`aspect-square flex items-center justify-center rounded-lg border text-sm font-semibold transition-colors ${
-                day.day === 0 
-                  ? "bg-transparent border-transparent" 
-                  : day.status 
+        {reportStart && reportEnd ? (
+          // List view for custom date range
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+            {getCalendarDays().map((day, i) => (
+              <div
+                key={i}
+                className={`p-3 rounded-lg border text-center ${
+                  day.status 
                     ? getCalendarColor(day.status)
                     : "bg-gray-50 border-gray-200 text-gray-700"
-              }`}
-            >
-              {day.day > 0 && day.day}
-            </div>
-          ))}
-        </div>
+                }`}
+              >
+                <div className="text-xs font-medium text-gray-600">
+                  {day.date && new Date(day.date).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                </div>
+                <div className="text-lg font-bold mt-1">{day.day}</div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          // Standard calendar grid for monthly view
+          <div className="grid grid-cols-7 gap-2">
+            {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((day) => (
+              <div key={day} className="text-center py-2 text-sm font-semibold text-gray-500">
+                {day}
+              </div>
+            ))}
+            {getCalendarDays().map((day, i) => (
+              <div
+                key={i}
+                className={`aspect-square flex items-center justify-center rounded-lg border text-sm font-semibold transition-colors ${
+                  day.day === 0 
+                    ? "bg-transparent border-transparent" 
+                    : day.status 
+                      ? getCalendarColor(day.status)
+                      : "bg-gray-50 border-gray-200 text-gray-700"
+                }`}
+              >
+                {day.day > 0 && day.day}
+              </div>
+            ))}
+          </div>
+        )}
         
         {/* Legend */}
         <div className="mt-6 flex flex-wrap gap-4 text-sm">
@@ -894,9 +995,10 @@ export default function AttendancePage() {
       )}
 
       {/* Correction Modal */}
-      {showCorrectionModal && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[999] flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 my-8">
+      {showCorrectionModal && mounted && createPortal(
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setShowCorrectionModal(false)}></div>
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 relative z-[10000]">
             <div className="flex items-center justify-between mb-6">
               <h3 className="text-lg font-semibold text-gray-900">Request Correction</h3>
               <button onClick={() => setShowCorrectionModal(false)} className="text-gray-400 hover:text-gray-600">
@@ -980,13 +1082,15 @@ export default function AttendancePage() {
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Remote Work Modal */}
-      {showRemoteModal && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[999] flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 my-8">
+      {showRemoteModal && mounted && createPortal(
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setShowRemoteModal(false)}></div>
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 relative z-[10000]">
             <div className="flex items-center justify-between mb-6">
               <h3 className="text-lg font-semibold text-gray-900">Request Remote Work</h3>
               <button onClick={() => setShowRemoteModal(false)} className="text-gray-400 hover:text-gray-600">
@@ -1049,7 +1153,8 @@ export default function AttendancePage() {
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

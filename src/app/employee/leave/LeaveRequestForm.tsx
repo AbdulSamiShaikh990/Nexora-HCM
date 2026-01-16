@@ -102,6 +102,8 @@ export default function LeaveRequestForm({ isOpen, onClose, onSubmit }: LeaveReq
   // Prevent body scroll when modal is open
   useEffect(() => {
     if (isOpen) {
+      // Scroll to top when modal opens
+      window.scrollTo({ top: 0, behavior: 'smooth' });
       document.body.style.overflow = "hidden";
     } else {
       document.body.style.overflow = "unset";
@@ -230,7 +232,7 @@ export default function LeaveRequestForm({ isOpen, onClose, onSubmit }: LeaveReq
   // Confirmation Dialog
   const confirmDialog = showConfirmDialog && (
     <div className="fixed inset-0 z-[10001] flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/70" onClick={handleCancelConfirm}></div>
+      <div className="fixed inset-0 bg-black/70" onClick={handleCancelConfirm}></div>
       <div className="bg-white rounded-xl shadow-2xl w-full max-w-md relative z-[10002] p-6">
         <div className="flex items-center gap-3 mb-4">
           <div className="p-2 bg-yellow-100 rounded-full">
@@ -258,12 +260,12 @@ export default function LeaveRequestForm({ isOpen, onClose, onSubmit }: LeaveReq
   );
 
   const modalContent = (
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4" style={{ scrollBehavior: "smooth" }}>
       {/* Confirm Dialog */}
       {confirmDialog}
       
       {/* Overlay */}
-      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose}></div>
+      <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9998]" onClick={onClose}></div>
       
       {/* Modal */}
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto relative z-[10000] border border-orange-200">
