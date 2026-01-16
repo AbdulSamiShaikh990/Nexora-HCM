@@ -36,6 +36,8 @@ model Employee {
   payrollRecords        PayrollRecord[]
   performances          Performance[]
   remoteWork            RemoteWorkRequest[]
+  tasksAssignedByMe     Task[]                @relation("TaskAssignedBy")
+  tasksAssignedToMe     Task[]                @relation("TaskAssignedTo")
 }
 
 model Attendance {
@@ -237,6 +239,32 @@ model Notification {
   type      String
   payload   Json?
   createdAt DateTime @default(now())
+}
+
+// Task Management Model
+model Task {
+  id             Int       @id @default(autoincrement())
+  title          String
+  description    String?
+  status         String    @default("Pending") // Pending | InProgress | Completed
+  priority       String    @default("Medium")  // Low | Medium | High
+  dueDate        DateTime
+  estimatedHours Float?
+  actualHours    Float?    @default(0)
+  progress       Float?    @default(0) // 0-100
+  tags           String[]  @default([])
+  assignedById   Int       // Admin/Manager who created the task
+  assignedToId   Int       // Employee who receives the task
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  assignedBy  Employee @relation("TaskAssignedBy", fields: [assignedById], references: [id], onDelete: Cascade)
+  assignedTo  Employee @relation("TaskAssignedTo", fields: [assignedToId], references: [id], onDelete: Cascade)
+
+  @@index([assignedById])
+  @@index([assignedToId])
+  @@index([status])
+  @@index([dueDate])
 }
 
 /// Normalized Payroll models (added in addition to legacy `Payroll` model)

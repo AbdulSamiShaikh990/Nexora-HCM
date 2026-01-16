@@ -152,6 +152,17 @@ const Icons = {
       <path d="M12 2a7 7 0 1 1 0 14h-1l-4 3 1.5-3H8a7 7 0 0 1 4-14Z" />
     </svg>
   ),
+  task: (a: boolean) => (
+    <svg
+      viewBox="0 0 24 24"
+      className={`h-5 w-5 ${a ? "text-white" : "text-gray-500"}`}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+    >
+      <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
+    </svg>
+  ),
   settings: (a: boolean) => (
     <svg
       viewBox="0 0 24 24"
@@ -176,6 +187,7 @@ const navItems: NavItem[] = [
   { label: "Performance", href: "/admin/performance", icon: Icons.performance },
   { label: "Career Growth", href: "/admin/career-growth", icon: Icons.career },
   { label: "Sentiment Analysis", href: "/admin/sentiment", icon: Icons.sentiment },
+  { label: "Task Management", href: "/admin/task", icon: Icons.task },
   { label: "Notifications", href: "/admin/notifications", icon: (a: boolean) => (
     <svg
       viewBox="0 0 24 24"

@@ -1,16 +1,16 @@
+"use client";
+
 import type { Metadata } from "next";
+import { SessionProvider } from "next-auth/react";
 import Sidebar from "@/components/Sidebar";
 import AdminHeader from "@/components/AdminHeader";
-
-export const metadata: Metadata = {
-  title: "Admin | Nexora HCM",
-};
 
 export default function AdminLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <div className="flex min-h-screen bg-transparent">
+    <SessionProvider>
+      <div className="flex min-h-screen bg-transparent">
       {/* Fixed, responsive sidebar with internal spacer */}
       <Sidebar />
 
@@ -26,6 +26,7 @@ export default function AdminLayout({
         </div>
       </div>
     </div>
+    </SessionProvider>
   );
 }
 

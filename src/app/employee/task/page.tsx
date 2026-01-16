@@ -1,91 +1,27 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
+import { useSession } from "next-auth/react";
+import { useRouter } from "next/navigation";
 
 // Types
 type Task = {
-  id: string;
+  id: number;
   title: string;
-  description: string;
-  status: "pending" | "completed" | "in-progress";
+  description: string | null;
+  status: string;
   dueDate: string;
-  priority: "low" | "medium" | "high";
-  assignedBy: string;
-  estimatedHours: number;
+  priority: string;
+  assignedBy: { id: number; firstName: string; lastName: string; email: string };
+  assignedById: number;
+  estimatedHours: number | null;
   actualHours: number;
-  progress: number;
+  progress: number | null;
   tags: string[];
+  createdAt: string;
+  updatedAt: string;
 };
-
-// Sample Data
-const sampleTasks: Task[] = [
-  {
-    id: "1",
-    title: "Complete Quarterly Report",
-    description: "Prepare and finalize the Q4 financial report with all department summaries and projections for the upcoming quarter.",
-    status: "completed",
-    dueDate: "2026-01-10",
-    priority: "high",
-    assignedBy: "Sarah Johnson",
-    estimatedHours: 8,
-    actualHours: 7.5,
-    progress: 100,
-    tags: ["report", "finance", "quarterly"],
-  },
-  {
-    id: "2",
-    title: "Client Meeting Preparation",
-    description: "Prepare presentation slides and documentation for the upcoming client meeting with ABC Corporation.",
-    status: "in-progress",
-    dueDate: "2026-01-18",
-    priority: "medium",
-    assignedBy: "Michael Chen",
-    estimatedHours: 6,
-    actualHours: 3,
-    progress: 50,
-    tags: ["client", "presentation", "meeting"],
-  },
-  {
-    id: "3",
-    title: "Code Review",
-    description: "Review and provide feedback on the new authentication module developed by the junior team members.",
-    status: "pending",
-    dueDate: "2026-01-20",
-    priority: "low",
-    assignedBy: "David Park",
-    estimatedHours: 4,
-    actualHours: 0,
-    progress: 0,
-    tags: ["review", "development", "security"],
-  },
-  {
-    id: "4",
-    title: "Database Optimization",
-    description: "Analyze and optimize database queries for improved application performance. Focus on slow-running queries.",
-    status: "in-progress",
-    dueDate: "2026-01-22",
-    priority: "high",
-    assignedBy: "Emily Rodriguez",
-    estimatedHours: 12,
-    actualHours: 8,
-    progress: 65,
-    tags: ["database", "performance", "optimization"],
-  },
-  {
-    id: "5",
-    title: "Documentation Update",
-    description: "Update the user documentation and API guides to reflect the recent system changes and new features.",
-    status: "pending",
-    dueDate: "2026-01-25",
-    priority: "medium",
-    assignedBy: "Sarah Johnson",
-    estimatedHours: 5,
-    actualHours: 0,
-    progress: 0,
-    tags: ["documentation", "api", "update"],
-  },
-];
 
 // Helper functions
 const formatDateDisplay = (dateStr: string) => {
@@ -137,9 +73,87 @@ const getPriorityLabel = (priority: string) => {
 };
 
 export default function TaskPage() {
-  const [tasks] = useState<Task[]>(sampleTasks);
+  const { data: session, status } = useSession();
+  const router = useRouter();
+  const [tasks, setTasks] = useState<Task[]>([]);
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [priorityFilter, setPriorityFilter] = useState<string>("all");
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [updatingId, setUpdatingId] = useState<number | null>(null);
+  const [showDetailsModal, setShowDetailsModal] = useState(false);
+  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+
+  // Check authentication
+  useEffect(() => {
+    if (status === "unauthenticated") {
+      router.push("/auth/signin");
+    }
+  }, [status, router]);
+
+  // Fetch tasks on mount
+  useEffect(() => {
+    if (session?.user?.id) {
+      fetchTasks();
+    }
+  }, [session]);
+
+  const fetchTasks = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      // Get user email from NextAuth session
+      const userEmail = session?.user?.email;
+      console.log("Session:", session);
+      console.log("User email:", userEmail);
+      
+      if (!userEmail) {
+        setError("User not authenticated. Please log in.");
+        setLoading(false);
+        return;
+      }
+      
+      // Fetch employee by email to get numeric employee ID
+      const empRes = await fetch(`/api/employees/list`);
+      if (!empRes.ok) throw new Error("Failed to fetch employee data");
+      
+      const empData = await empRes.json();
+      console.log("API Response:", empData);
+      
+      if (!empData || !empData.employees || empData.employees.length === 0) {
+        setError("No employees found in system");
+        setLoading(false);
+        return;
+      }
+      
+      // Find employee matching logged-in user's email
+      const employee = empData.employees.find((emp: any) => emp.email === userEmail);
+      console.log("Matched employee:", employee);
+      
+      if (!employee || !employee.id) {
+        setError(`No employee record found for email: ${userEmail}. Please contact admin.`);
+        setLoading(false);
+        return;
+      }
+      
+      const employeeId = employee.id;
+      console.log("Employee ID:", employeeId);
+      
+      // Now fetch tasks for this employee
+      console.log("Fetching tasks for employee ID:", employeeId);
+      const res = await fetch(`/api/task/employee?employeeId=${employeeId}`);
+      if (!res.ok) throw new Error("Failed to fetch tasks");
+      const data = await res.json();
+      console.log("Received tasks data:", data);
+      setTasks(data.data || []);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "An error occurred");
+      console.error("Error fetching tasks:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // Filter tasks
   const filteredTasks = tasks.filter((task) => {
@@ -149,42 +163,135 @@ export default function TaskPage() {
   });
 
   // Calculate summary statistics
-  const completedCount = tasks.filter((t) => t.status === "completed").length;
-  const inProgressCount = tasks.filter((t) => t.status === "in-progress").length;
-  const pendingCount = tasks.filter((t) => t.status === "pending").length;
+  const completedCount = tasks.filter((t) => t.status === "Completed").length;
+  const inProgressCount = tasks.filter((t) => t.status === "InProgress").length;
+  const pendingCount = tasks.filter((t) => t.status === "Pending").length;
   const totalHoursSpent = tasks.reduce((sum, t) => sum + t.actualHours, 0);
+
+  const handleUpdateProgress = async (taskId: number, newStatus: string) => {
+    try {
+      setUpdatingId(taskId);
+      
+      // Get user email from NextAuth session
+      const userEmail = session?.user?.email;
+      
+      if (!userEmail) {
+        setError("User not authenticated");
+        setUpdatingId(null);
+        return;
+      }
+      
+      // Fetch employee to get numeric ID
+      const empRes = await fetch(`/api/employees/list`);
+      if (!empRes.ok) throw new Error("Failed to fetch employee data");
+      const empData = await empRes.json();
+      
+      if (!empData || !empData.employees || empData.employees.length === 0) {
+        throw new Error("No employees found");
+      }
+      
+      const employee = empData.employees.find((emp: any) => emp.email === userEmail);
+      if (!employee || !employee.id) throw new Error("Employee record not found");
+      
+      const employeeId = employee.id;
+      
+      const res = await fetch("/api/task/employee", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: taskId,
+          employeeId: employeeId,
+          status: newStatus,
+        }),
+      });
+
+      if (!res.ok) throw new Error("Failed to update task");
+      const updatedTask = await res.json();
+      setTasks(tasks.map((t) => (t.id === taskId ? updatedTask.data : t)));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to update task");
+    } finally {
+      setUpdatingId(null);
+    }
+  };
 
   return (
     <div className="w-full space-y-6">
-      {/* Header Section */}
-      <div className="bg-gradient-to-r from-orange-50 to-orange-100/50 rounded-2xl border border-orange-200 p-6 lg:p-8">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div>
-            <div className="flex items-center gap-3 mb-3">
-              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-orange-500 to-orange-600 flex items-center justify-center shadow-lg">
-                <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
-                </svg>
-              </div>
-              <div>
-                <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-gray-900">My Tasks</h1>
-                <p className="text-sm text-gray-600 mt-1">Manage and track your assigned tasks</p>
-              </div>
+      {/* Error Alert */}
+      {error && (
+        <div className="relative overflow-hidden rounded-2xl bg-red-500/10 border border-red-300/40 backdrop-blur-xl p-4 shadow-[0_8px_32px_0_rgba(239,68,68,0.1)]">
+          <div className="flex items-center gap-3">
+            <svg className="w-5 h-5 text-red-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4v.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <p className="text-sm text-red-700 font-medium">{error}</p>
+            <button onClick={() => setError(null)} className="ml-auto text-red-600 hover:text-red-800">
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Loading State */}
+      {loading && (
+        <div className="flex items-center justify-center py-16">
+          <div className="text-center">
+            <div className="w-12 h-12 rounded-full border-4 border-orange-200 border-t-orange-600 animate-spin mx-auto mb-4"></div>
+            <p className="text-gray-600 font-medium">Loading your tasks...</p>
+          </div>
+        </div>
+      )}
+
+      {!loading && tasks.length === 0 && !error && (
+        <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded-lg">
+          <div className="flex">
+            <div className="flex-shrink-0">
+              <svg className="h-5 w-5 text-yellow-400" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+              </svg>
+            </div>
+            <div className="ml-3">
+              <p className="text-sm text-yellow-700">
+                No tasks found for Employee ID: 2. Make sure tasks are assigned to this employee from the admin panel.
+              </p>
             </div>
           </div>
-          <Link
-            href="/employee/dashboard"
-            className="flex items-center justify-center gap-2 px-4 py-2 rounded-xl border-2 border-orange-300 text-orange-700 hover:bg-white hover:border-orange-400 font-medium transition-all shadow-sm"
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-            </svg>
-            <span className="text-sm">Back</span>
-          </Link>
         </div>
-      </div>
+      )}
 
-      {/* Summary Cards */}
+      {!loading && (
+        <>
+          {/* Header Section */}
+          <div className="bg-gradient-to-r from-orange-50 to-orange-100/50 rounded-2xl border border-orange-200 p-6 lg:p-8">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <div>
+                <div className="flex items-center gap-3 mb-3">
+                  <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-orange-500 to-orange-600 flex items-center justify-center shadow-lg">
+                    <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
+                    </svg>
+                  </div>
+                  <div>
+                    <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-gray-900">My Tasks</h1>
+                    <p className="text-sm text-gray-600 mt-1">Manage and track your assigned tasks</p>
+                  </div>
+                </div>
+              </div>
+              <Link
+                href="/employee/dashboard"
+                className="flex items-center justify-center gap-2 px-4 py-2 rounded-xl border-2 border-orange-300 text-orange-700 hover:bg-white hover:border-orange-400 font-medium transition-all shadow-sm"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                </svg>
+                <span className="text-sm">Back</span>
+              </Link>
+            </div>
+          </div>
+
+          {/* Summary Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Completed */}
         <div className="bg-white rounded-2xl shadow-lg border border-green-100 p-5 lg:p-6 hover:shadow-xl transition-all hover:border-green-200">
@@ -253,6 +360,10 @@ export default function TaskPage() {
             <span className="text-sm font-bold text-gray-900">Filter Tasks</span>
           </div>
 
+          <div className="mb-2 text-sm text-gray-600">
+            Total tasks loaded: <strong>{tasks.length}</strong> | Filtered: <strong>{filteredTasks.length}</strong>
+          </div>
+
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             {/* Status Filter */}
             <div className="flex flex-col gap-2">
@@ -263,9 +374,9 @@ export default function TaskPage() {
                 className="px-4 py-2.5 rounded-xl border-2 border-gray-200 focus:ring-2 focus:ring-orange-400 focus:border-transparent bg-white text-gray-900 text-sm font-medium hover:border-orange-300 transition-colors"
               >
                 <option value="all">All Status</option>
-                <option value="pending">Pending</option>
-                <option value="in-progress">In Progress</option>
-                <option value="completed">Completed</option>
+                <option value="Pending">Pending</option>
+                <option value="InProgress">In Progress</option>
+                <option value="Completed">Completed</option>
               </select>
             </div>
 
@@ -396,7 +507,7 @@ export default function TaskPage() {
                   </svg>
                   <div className="flex-1 min-w-0">
                     <p className="text-xs text-gray-600 font-medium">Assigned By</p>
-                    <p className="text-sm font-bold text-gray-900 truncate">{task.assignedBy}</p>
+                    <p className="text-sm font-bold text-gray-900 truncate">{typeof task.assignedBy === 'string' ? task.assignedBy : `${task.assignedBy.firstName} ${task.assignedBy.lastName}`}</p>
                   </div>
                 </div>
 
@@ -430,15 +541,15 @@ export default function TaskPage() {
                 <div className="w-full bg-gray-200 rounded-full h-2.5 overflow-hidden">
                   <div
                     className={`h-2.5 rounded-full transition-all duration-300 ${
-                      task.progress === 100
+                      (task.progress ?? 0) === 100
                         ? "bg-gradient-to-r from-green-500 to-green-600"
-                        : task.progress >= 50
+                        : (task.progress ?? 0) >= 50
                         ? "bg-gradient-to-r from-blue-500 to-blue-600"
-                        : task.progress > 0
+                        : (task.progress ?? 0) > 0
                         ? "bg-gradient-to-r from-orange-500 to-orange-600"
                         : "bg-gray-300"
                     }`}
-                    style={{ width: `${task.progress}%` }}
+                    style={{ width: `${task.progress ?? 0}%` }}
                   ></div>
                 </div>
               </div>
@@ -457,23 +568,34 @@ export default function TaskPage() {
 
               {/* Action Buttons */}
               <div className="flex flex-wrap gap-3 pt-4 border-t border-gray-100">
-                {task.status === "pending" && (
-                  <button className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-green-500 to-green-600 text-white font-semibold text-sm shadow-lg shadow-green-500/30 hover:shadow-xl hover:scale-105 transition-all active:scale-95">
+                {task.status === "Pending" && (
+                  <button 
+                    onClick={() => handleUpdateProgress(task.id, "InProgress")}
+                    disabled={updatingId === task.id}
+                    className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-green-500 to-green-600 text-white font-semibold text-sm shadow-lg shadow-green-500/30 hover:shadow-xl hover:scale-105 transition-all active:scale-95 disabled:opacity-50 disabled:scale-100">
                     <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
                       <path d="M8 5v14l11-7z" />
                     </svg>
-                    Start Task
+                    {updatingId === task.id ? "Starting..." : "Start Task"}
                   </button>
                 )}
-                {task.status === "in-progress" && (
-                  <button className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-blue-500 to-blue-600 text-white font-semibold text-sm shadow-lg shadow-blue-500/30 hover:shadow-xl hover:scale-105 transition-all active:scale-95">
+                {task.status === "InProgress" && (
+                  <button 
+                    onClick={() => handleUpdateProgress(task.id, "Completed")}
+                    disabled={updatingId === task.id}
+                    className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-blue-500 to-blue-600 text-white font-semibold text-sm shadow-lg shadow-blue-500/30 hover:shadow-xl hover:scale-105 transition-all active:scale-95 disabled:opacity-50 disabled:scale-100">
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                     </svg>
-                    Update Progress
+                    {updatingId === task.id ? "Completing..." : "Complete"}
                   </button>
                 )}
-                <button className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border-2 border-orange-300 text-orange-700 font-semibold text-sm hover:bg-orange-50 hover:border-orange-400 transition-all active:scale-95">
+                <button 
+                  onClick={() => {
+                    setSelectedTask(task);
+                    setShowDetailsModal(true);
+                  }}
+                  className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border-2 border-orange-300 text-orange-700 font-semibold text-sm hover:bg-orange-50 hover:border-orange-400 transition-all active:scale-95">
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
@@ -485,6 +607,122 @@ export default function TaskPage() {
           ))
         )}
       </div>
+
+      </>
+      )}
+
+      {/* Task Details Modal */}
+      {showDetailsModal && selectedTask && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            {/* Modal Header */}
+            <div className="sticky top-0 bg-gradient-to-r from-orange-500 to-orange-600 p-6 rounded-t-2xl">
+              <div className="flex items-start justify-between">
+                <div>
+                  <h2 className="text-2xl font-bold text-white mb-2">{selectedTask.title}</h2>
+                  <div className="flex gap-2">
+                    <span className={`px-3 py-1 rounded-full text-xs font-semibold ${getStatusColor(selectedTask.status)}`}>
+                      {getStatusLabel(selectedTask.status)}
+                    </span>
+                    <span className={`px-3 py-1 rounded-full text-xs font-semibold ${getPriorityColor(selectedTask.priority)}`}>
+                      {getPriorityLabel(selectedTask.priority)} Priority
+                    </span>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setShowDetailsModal(false)}
+                  className="text-white hover:bg-white/20 rounded-lg p-2 transition-colors"
+                >
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-6 space-y-6">
+              {/* Description */}
+              <div>
+                <h3 className="text-sm font-semibold text-gray-700 mb-2">Description</h3>
+                <p className="text-gray-600 leading-relaxed">{selectedTask.description || "No description provided"}</p>
+              </div>
+
+              {/* Details Grid */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="bg-orange-50 p-4 rounded-xl">
+                  <p className="text-xs text-gray-600 font-medium mb-1">Due Date</p>
+                  <p className="text-lg font-bold text-gray-900">{formatDateDisplay(selectedTask.dueDate)}</p>
+                </div>
+                <div className="bg-blue-50 p-4 rounded-xl">
+                  <p className="text-xs text-gray-600 font-medium mb-1">Assigned By</p>
+                  <p className="text-lg font-bold text-gray-900">{typeof selectedTask.assignedBy === 'string' ? selectedTask.assignedBy : `${selectedTask.assignedBy.firstName} ${selectedTask.assignedBy.lastName}`}</p>
+                </div>
+                <div className="bg-purple-50 p-4 rounded-xl">
+                  <p className="text-xs text-gray-600 font-medium mb-1">Estimated Hours</p>
+                  <p className="text-lg font-bold text-gray-900">{selectedTask.estimatedHours || 0}h</p>
+                </div>
+                <div className="bg-green-50 p-4 rounded-xl">
+                  <p className="text-xs text-gray-600 font-medium mb-1">Actual Hours</p>
+                  <p className="text-lg font-bold text-gray-900">{selectedTask.actualHours}h</p>
+                </div>
+              </div>
+
+              {/* Progress Bar */}
+              <div>
+                <div className="flex justify-between mb-2">
+                  <span className="text-sm font-medium text-gray-700">Progress</span>
+                  <span className="text-sm font-bold text-orange-600">{selectedTask.progress}%</span>
+                </div>
+                <div className="w-full bg-gray-200 rounded-full h-3">
+                  <div
+                    className="h-3 rounded-full bg-gradient-to-r from-orange-500 to-orange-600 transition-all"
+                    style={{ width: `${selectedTask.progress ?? 0}%` }}
+                  ></div>
+                </div>
+              </div>
+
+              {/* Tags */}
+              {selectedTask.tags && selectedTask.tags.length > 0 && (
+                <div>
+                  <h3 className="text-sm font-semibold text-gray-700 mb-2">Tags</h3>
+                  <div className="flex flex-wrap gap-2">
+                    {selectedTask.tags.map((tag, index) => (
+                      <span key={index} className="px-3 py-1 rounded-lg bg-gray-100 text-gray-700 text-sm font-medium">
+                        #{tag}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Timestamps */}
+              <div className="border-t pt-4">
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <span className="text-gray-600">Created:</span>
+                    <span className="ml-2 font-medium text-gray-900">{new Date(selectedTask.createdAt).toLocaleString()}</span>
+                  </div>
+                  <div>
+                    <span className="text-gray-600">Updated:</span>
+                    <span className="ml-2 font-medium text-gray-900">{new Date(selectedTask.updatedAt).toLocaleString()}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="bg-gray-50 p-6 rounded-b-2xl flex justify-end">
+              <button
+                onClick={() => setShowDetailsModal(false)}
+                className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-orange-500 to-orange-600 text-white font-semibold hover:shadow-lg transition-all"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

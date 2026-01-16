@@ -4,7 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 
 type NotificationState = "pending" | "approved" | "rejected";
-type NotificationType = "leave" | "remote_work" | "attendance_correction";
+type NotificationType = "leave" | "remote_work" | "attendance_correction" | "task_assigned";
 
 interface EmployeeNotification {
   id: string;
@@ -50,7 +50,7 @@ export async function GET() {
       return NextResponse.json({ error: "Employee not found" }, { status: 404 });
     }
 
-    const [leaves, remoteRequests, corrections] = await Promise.all([
+    const [leaves, remoteRequests, corrections, taskNotifications] = await Promise.all([
       prisma.leave.findMany({
         where: { employeeId: employee.id },
         orderBy: { startDate: "desc" },
@@ -63,6 +63,18 @@ export async function GET() {
       prisma.attendanceCorrection.findMany({
         where: { employeeId: employee.id },
         orderBy: { updatedAt: "desc" },
+      }),
+      prisma.notification.findMany({
+        where: { 
+          type: "task_assigned",
+          // @ts-expect-error - payload is Json type
+          payload: {
+            path: ["assignedToId"],
+            equals: employee.id
+          }
+        },
+        orderBy: { createdAt: "desc" },
+        take: 50,
       }),
     ]);
 
@@ -106,6 +118,18 @@ export async function GET() {
         title: state === "pending" ? "Attendance correction submitted" : `Attendance ${state}`,
         message: `${correction.issue} for ${dateLabel} ${state === "pending" ? "awaiting review" : state === "approved" ? "is fixed" : "was rejected"}.`,
         createdAt: correction.updatedAt.toISOString(),
+      });
+    });
+
+    taskNotifications.forEach((notification) => {
+      const payload = notification.payload as any; // eslint-disable-line @typescript-eslint/no-explicit-any
+      notifications.push({
+        id: `task-${notification.id}`,
+        type: "task_assigned",
+        state: "pending",
+        title: "New Task Assigned",
+        message: `${payload.taskTitle} - Priority: ${payload.priority} - Due: ${new Date(payload.dueDate).toLocaleDateString("en-US", { month: "short", day: "numeric" })}`,
+        createdAt: notification.createdAt.toISOString(),
       });
     });
 
