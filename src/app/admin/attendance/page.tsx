@@ -736,7 +736,7 @@ export default function Page() {
             <select
               className="h-9 rounded-md border border-gray-300 px-3 text-sm bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
               value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value as any)}
+              onChange={(e) => setStatusFilter(e.target.value as "all" | AttendanceStatus)}
             >
               <option value="all">All</option>
               <option value="Present">Present</option>
