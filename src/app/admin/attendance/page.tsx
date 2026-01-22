@@ -293,10 +293,8 @@ export default function Page() {
   }, [department]);
 
   React.useEffect(() => {
-    if (tab === "self") {
-      loadCorrectionRequests();
-    }
-  }, [tab, loadCorrectionRequests]);
+    loadCorrectionRequests();
+  }, [loadCorrectionRequests]);
 
   // Fetch live status
   const loadLiveStatus = React.useCallback(async () => {
