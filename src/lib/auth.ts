@@ -69,18 +69,26 @@ export const authOptions: NextAuthOptions = {
       });
       return !!dbUser;
     },
-    async jwt({ token, user }) {
+    async jwt({ token, user, trigger, session }) {
       if (user) {
         const u = user as AppUser;
         (token as JWT).id = u.id;
         token.email = u.email;
+        token.name = u.name ?? token.name;
         (token as JWT).role = u.role ?? ((token as JWT).role ?? null);
       }
+
+      // Allow client-side session update (e.g., after profile change)
+      if (trigger === "update" && session?.name) {
+        token.name = session.name;
+      }
+
       if (!token.role && token.email) {
         const dbUser = await prisma.user.findUnique({
           where: { email: String(token.email).toLowerCase() },
         });
         token.role = dbUser ? (dbUser.role === "ADMIN" ? "admin" : "employee") : null;
+        token.name = token.name ?? dbUser?.name ?? undefined;
       }
       return token;
     },
@@ -89,6 +97,7 @@ export const authOptions: NextAuthOptions = {
       const t = token as JWT & { email?: string | null };
       if (s.user) {
         (s.user as unknown as { id?: string }).id = t.id as string;
+        s.user.name = (t as { name?: string }).name ?? s.user.name;
         // NextAuth's Session.user.email is typed as string | null | undefined depending on version.
         // Cast to string to satisfy lint while we always set a string from JWT when present.
         s.user.email = (t.email ?? "") as unknown as string;

@@ -131,7 +131,7 @@ export async function GET() {
         employeeEmail: l.employee.email,
         department: l.employee.department,
         jobTitle: l.employee.jobTitle,
-        createdAt: (l.updatedAt || l.startDate || l.createdAt).toISOString(),
+        createdAt: l.startDate.toISOString(),
       });
     });
 

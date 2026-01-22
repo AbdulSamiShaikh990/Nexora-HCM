@@ -55,11 +55,11 @@ export async function GET() {
         where: { employeeId: employee.id },
         orderBy: { startDate: "desc" },
       }),
-      // @ts-expect-error - Prisma type will be available after server restart
       prisma.remoteWorkRequest.findMany({
         where: { employeeId: employee.id },
         orderBy: { updatedAt: "desc" },
       }),
+
       prisma.attendanceCorrection.findMany({
         where: { employeeId: employee.id },
         orderBy: { updatedAt: "desc" },
@@ -67,7 +67,6 @@ export async function GET() {
       prisma.notification.findMany({
         where: { 
           type: "task_assigned",
-          // @ts-expect-error - payload is Json type
           payload: {
             path: ["assignedToId"],
             equals: employee.id
