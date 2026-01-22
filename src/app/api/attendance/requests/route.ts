@@ -76,23 +76,31 @@ export async function GET(req: Request) {
       note: string | null;
       state: string;
       createdAt: Date;
-    }) => ({
-      id: r.id,
-      employee: `${r.employee.firstName} ${r.employee.lastName}`,
-      employeeId: r.employee.id,
-      department: r.employee.department,
-      date: r.date.toISOString().split("T")[0],
-      issue: r.issue,
-      requestedCheckIn: r.requestedCheckIn
-        ? r.requestedCheckIn.toISOString().substring(11, 16)
-        : null,
-      requestedCheckOut: r.requestedCheckOut
-        ? r.requestedCheckOut.toISOString().substring(11, 16)
-        : null,
-      note: r.note,
-      state: r.state,
-      createdAt: r.createdAt.toISOString(),
-    }));
+    }) => {
+      // Pakistan timezone offset (UTC+5)
+      const pakistanOffset = 5 * 60 * 60 * 1000;
+      
+      // Convert times to Pakistan timezone
+      const formatTimePakistan = (date: Date | null): string | null => {
+        if (!date) return null;
+        const pakistanTime = new Date(date.getTime() + pakistanOffset);
+        return pakistanTime.toISOString().substring(11, 16);
+      };
+      
+      return {
+        id: r.id,
+        employee: `${r.employee.firstName} ${r.employee.lastName}`,
+        employeeId: r.employee.id,
+        department: r.employee.department,
+        date: r.date.toISOString().split("T")[0],
+        issue: r.issue,
+        requestedCheckIn: formatTimePakistan(r.requestedCheckIn),
+        requestedCheckOut: formatTimePakistan(r.requestedCheckOut),
+        note: r.note,
+        state: r.state,
+        createdAt: r.createdAt.toISOString(),
+      };
+    });
 
     return NextResponse.json(
       {

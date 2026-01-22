@@ -69,7 +69,7 @@ function minutesToHm(mins?: number): string {
   return h > 0 ? `${h}h ${m}m` : `${m}m`;
 }
 
-function format24hTo12h(time24h: string | null): string {
+function format24hTo12h(time24h: string | null | undefined): string {
   if (!time24h || time24h === "-") return "-";
   const [hours, minutes] = time24h.split(":");
   let h = parseInt(hours, 10);
@@ -787,11 +787,11 @@ export default function Page() {
                           <div className="flex flex-col gap-1">
                             <div>
                               <span className="text-gray-500 mr-1 font-medium">In:</span>
-                              <span className="font-semibold text-gray-900">{format24hTo12h(r.requestedCheckIn)}</span>
+                              <span className="font-semibold text-gray-900">{format24hTo12h(r.requestedCheckIn ?? null)}</span>
                             </div>
                             <div>
                               <span className="text-gray-500 mr-1 font-medium">Out:</span>
-                              <span className="font-semibold text-gray-900">{format24hTo12h(r.requestedCheckOut)}</span>
+                              <span className="font-semibold text-gray-900">{format24hTo12h(r.requestedCheckOut ?? null)}</span>
                             </div>
                           </div>
                         </td>
