@@ -25,8 +25,10 @@ function computeDeltas(
 
   const late = Math.max(0, checkInMinutes - shiftStartMinutes);
   const early = Math.max(0, shiftEndMinutes - checkOutMinutes);
-  const ot = Math.max(0, checkOutMinutes - shiftEndMinutes);
   const total = Math.max(0, checkOutMinutes - checkInMinutes);
+  
+  // Overtime: only if total worked hours > 8 hours (480 minutes)
+  const ot = total > 480 ? total - 480 : 0;
 
   return { late, early, ot, total };
 }
@@ -42,14 +44,18 @@ function minutesToHm(mins: number): string {
 // Helper: format Date (UTC) to 12h string like "09:05 AM"
 function to12h(d?: Date | null): string {
   if (!d) return "-";
-  let h = d.getUTCHours();
-  const m = d.getUTCMinutes();
-  const ap = h >= 12 ? "PM" : "AM";
+  // Convert to Pakistan time (UTC+5)
+  const pakistanOffset = 5 * 60 * 60 * 1000; // 5 hours in milliseconds
+  const pakTime = new Date(d.getTime() + pakistanOffset);
+  
+  let h = pakTime.getUTCHours();
+  const m = pakTime.getUTCMinutes();
+  const meridiem = h >= 12 ? "PM" : "AM";
   h = h % 12;
   if (h === 0) h = 12;
   const hh = h.toString().padStart(2, "0");
   const mm = m.toString().padStart(2, "0");
-  return `${hh}:${mm} ${ap}`;
+  return `${hh}:${mm} ${meridiem}`;
 }
 
 // GET /api/attendance -> list attendance records with filters
@@ -68,10 +74,17 @@ export async function GET(req: Request) {
 
     const where: Prisma.AttendanceWhereInput = {};
 
-    // Filter by date
+    // Pakistan timezone offset (UTC+5)
+    const pakistanOffset = 5 * 60 * 60 * 1000; // 5 hours in milliseconds
+
+    // Filter by date - convert to Pakistan timezone range
     if (date) {
-      const startOfDay = new Date(date + "T00:00:00.000Z");
-      const endOfDay = new Date(date + "T23:59:59.999Z");
+      // Parse the date (YYYY-MM-DD) as Pakistan date
+      const [year, month, day] = date.split("-").map(Number);
+      // Pakistan midnight in UTC = Pakistan date 00:00 - 5 hours
+      const startOfDay = new Date(Date.UTC(year, month - 1, day, 0, 0, 0, 0));
+      startOfDay.setTime(startOfDay.getTime() - pakistanOffset);
+      const endOfDay = new Date(startOfDay.getTime() + (24 * 60 * 60 * 1000) - 1);
       where.date = {
         gte: startOfDay,
         lte: endOfDay,
@@ -92,8 +105,14 @@ export async function GET(req: Request) {
 
     // If stats mode
     if (mode === "stats") {
-      const startOfDay = date ? new Date(date + "T00:00:00.000Z") : undefined;
-      const endOfDay = date ? new Date(date + "T23:59:59.999Z") : undefined;
+      let startOfDay: Date | undefined;
+      let endOfDay: Date | undefined;
+      if (date) {
+        const [year, month, day] = date.split("-").map(Number);
+        startOfDay = new Date(Date.UTC(year, month - 1, day, 0, 0, 0, 0));
+        startOfDay.setTime(startOfDay.getTime() - pakistanOffset);
+        endOfDay = new Date(startOfDay.getTime() + (24 * 60 * 60 * 1000) - 1);
+      }
       const statsWhere: Prisma.AttendanceWhereInput = { ...where };
       if (startOfDay && endOfDay) {
         statsWhere.date = { gte: startOfDay, lte: endOfDay };
@@ -102,37 +121,76 @@ export async function GET(req: Request) {
         where: statsWhere,
         include: { employee: { select: { firstName: true, lastName: true, department: true } } },
       });
-      const total = records.length;
-      const present = records.filter((r) => r.status !== "Absent").length;
-      const late = records.filter((r) => r.status === "Late").length;
-      const absent = records.filter((r) => r.status === "Absent").length;
+      
+      // Get all active employees to calculate correct absent count
+      const allEmployeesWhere: Prisma.EmployeeWhereInput = { status: "Active" };
+      if (department && department !== "all") {
+        allEmployeesWhere.department = department;
+      }
+      const allEmployees = await prisma.employee.findMany({
+        where: allEmployeesWhere,
+        select: { id: true },
+      });
+      
+      const recordedEmployeeIds = new Set(records.map((r) => r.employeeId));
+      const employeesWithoutRecords = allEmployees.length - recordedEmployeeIds.size;
+      
+      const present = records.filter((r) => r.status.toLowerCase() === "present").length;
+      const late = records.filter((r) => r.status.toLowerCase() === "late").length;
+      const halfDay = records.filter((r) => r.status.toLowerCase() === "half-day").length;
+      const absentWithRecord = records.filter((r) => r.status.toLowerCase() === "absent").length;
+      const absent = absentWithRecord + employeesWithoutRecords; // Total absent = marked absent + no record
+      const total = allEmployees.length; // Total should be all active employees
+      
       let totalMinutes = 0;
+      let totalOvertimeMinutes = 0;
       records.forEach((r) => {
         const d = computeDeltas(r.checkIn, r.checkOut, shiftStart, shiftEnd);
         totalMinutes += d.total;
+        totalOvertimeMinutes += d.ot;
       });
       const avgHours = total > 0 ? Math.round((totalMinutes / total / 60) * 10) / 10 : 0;
-      const attendanceRate = total > 0 ? Math.round((present / total) * 1000) / 10 : 0;
+      const avgOvertime = records.length > 0 ? Math.round((totalOvertimeMinutes / records.length / 60) * 10) / 10 : 0;
+      const attendanceRate = total > 0 ? Math.round(((present + late) / total) * 1000) / 10 : 0;
       return NextResponse.json(
-        { date, total, present, late, absent, avgHours, attendanceRate, department: department || "all" },
+        { date, total, present, late, halfDay, absent, avgHours, avgOvertime, attendanceRate, department: department || "all" },
         { status: 200 }
       );
     }
 
     // If live mode
     if (mode === "live") {
-      const startOfDay = date ? new Date(date + "T00:00:00.000Z") : undefined;
-      const endOfDay = date ? new Date(date + "T23:59:59.999Z") : undefined;
+      let liveStartOfDay: Date | undefined;
+      let liveEndOfDay: Date | undefined;
+      if (date) {
+        const [year, month, day] = date.split("-").map(Number);
+        liveStartOfDay = new Date(Date.UTC(year, month - 1, day, 0, 0, 0, 0));
+        liveStartOfDay.setTime(liveStartOfDay.getTime() - pakistanOffset);
+        liveEndOfDay = new Date(liveStartOfDay.getTime() + (24 * 60 * 60 * 1000) - 1);
+      }
       const liveWhere: Prisma.AttendanceWhereInput = { ...where };
-      if (startOfDay && endOfDay) {
-        liveWhere.date = { gte: startOfDay, lte: endOfDay };
+      if (liveStartOfDay && liveEndOfDay) {
+        liveWhere.date = { gte: liveStartOfDay, lte: liveEndOfDay };
       }
       const records = await prisma.attendance.findMany({
         where: liveWhere,
         include: { employee: { select: { id: true, firstName: true, lastName: true, department: true } } },
       });
+      
+      // Get all active employees to show who's absent
+      const allEmployeesWhere: Prisma.EmployeeWhereInput = { status: "Active" };
+      if (department && department !== "all") {
+        allEmployeesWhere.department = department;
+      }
+      const allEmployees = await prisma.employee.findMany({
+        where: allEmployeesWhere,
+        select: { id: true, firstName: true, lastName: true, department: true },
+      });
+      
+      const recordedEmployeeIds = new Set(records.map((r) => r.employee!.id));
+      
       const inEmployees = records
-        .filter((r) => r.status !== "Absent" && r.checkIn)
+        .filter((r) => r.status.toLowerCase() !== "absent" && r.checkIn)
         .map((r) => ({
           id: r.employee!.id,
           employee: `${r.employee!.firstName} ${r.employee!.lastName}`,
@@ -140,15 +198,29 @@ export async function GET(req: Request) {
           checkIn: r.checkIn ? to12h(r.checkIn) : "-",
           status: r.status,
         }));
-      const outEmployees = records
-        .filter((r) => r.status === "Absent" || !r.checkIn)
-        .map((r) => ({
-          id: r.employee!.id,
-          employee: `${r.employee!.firstName} ${r.employee!.lastName}`,
-          department: r.employee!.department,
-          checkOut: r.checkOut ? to12h(r.checkOut) : "-",
-          status: r.status,
-        }));
+      
+      // Out/Absent employees: those with absent status OR not checked in OR not in records at all
+      const outEmployees = [
+        ...records
+          .filter((r) => r.status.toLowerCase() === "absent" || !r.checkIn)
+          .map((r) => ({
+            id: r.employee!.id,
+            employee: `${r.employee!.firstName} ${r.employee!.lastName}`,
+            department: r.employee!.department,
+            checkOut: r.checkOut ? to12h(r.checkOut) : "-",
+            status: r.status,
+          })),
+        ...allEmployees
+          .filter((emp) => !recordedEmployeeIds.has(emp.id))
+          .map((emp) => ({
+            id: emp.id,
+            employee: `${emp.firstName} ${emp.lastName}`,
+            department: emp.department,
+            checkOut: "-",
+            status: "absent",
+          })),
+      ];
+      
       return NextResponse.json({ date, in: inEmployees, out: outEmployees }, { status: 200 });
     }
 
@@ -157,8 +229,10 @@ export async function GET(req: Request) {
       if (!date) {
         return NextResponse.json({ error: "date is required for export" }, { status: 400 });
       }
-      const startOfDay = new Date(date + "T00:00:00.000Z");
-      const endOfDay = new Date(date + "T23:59:59.999Z");
+      const [expYear, expMonth, expDay] = date.split("-").map(Number);
+      const startOfDay = new Date(Date.UTC(expYear, expMonth - 1, expDay, 0, 0, 0, 0));
+      startOfDay.setTime(startOfDay.getTime() - pakistanOffset);
+      const endOfDay = new Date(startOfDay.getTime() + (24 * 60 * 60 * 1000) - 1);
       const exportWhere: Prisma.AttendanceWhereInput = {
         date: { gte: startOfDay, lte: endOfDay },
       };
@@ -202,32 +276,46 @@ export async function GET(req: Request) {
 
     const skip = (page - 1) * size;
 
-    const [records, total] = await Promise.all([
-      prisma.attendance.findMany({
-        where,
-        select: {
-          id: true,
-          date: true,
-          status: true,
-          employeeId: true,
-          checkIn: true,
-          checkOut: true,
-          employee: {
-            select: {
-              id: true,
-              firstName: true,
-              lastName: true,
-              department: true,
-              email: true,
-            },
+    // Get attendance records
+    const records = await prisma.attendance.findMany({
+      where,
+      select: {
+        id: true,
+        date: true,
+        status: true,
+        employeeId: true,
+        checkIn: true,
+        checkOut: true,
+        employee: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            department: true,
+            email: true,
           },
         },
-        orderBy: { date: "desc" },
-        skip,
-        take: size,
-      }),
-      prisma.attendance.count({ where }),
-    ]);
+      },
+      orderBy: { date: "desc" },
+      skip,
+      take: size,
+    });
+    
+    // Get all active employees to show who's absent
+    let allEmployees: Array<{ id: number; firstName: string; lastName: string; department: string }> = [];
+    if (date) {
+      // Only when filtering by specific date, show absent employees
+      const allEmployeesWhere: Prisma.EmployeeWhereInput = { status: "Active" };
+      if (department && department !== "all") {
+        allEmployeesWhere.department = department;
+      }
+      allEmployees = await prisma.employee.findMany({
+        where: allEmployeesWhere,
+        select: { id: true, firstName: true, lastName: true, department: true },
+      });
+    }
+    
+    const recordedEmployeeIds = new Set(records.map((r) => r.employeeId));
 
     // Compute deltas for each record
     const enrichedRecords = records.map((record) => {
@@ -257,10 +345,35 @@ export async function GET(req: Request) {
         overtimeMinutes: deltas.ot,
       };
     });
+    
+    // Add absent employees (those without records for the date)
+    const absentRecords = allEmployees
+      .filter((emp) => !recordedEmployeeIds.has(emp.id))
+      .map((emp, idx) => ({
+        id: -1 - idx, // Negative IDs for absent employees
+        employee: `${emp.firstName} ${emp.lastName}`,
+        employeeId: emp.id,
+        department: emp.department,
+        date: date || new Date().toISOString().split("T")[0],
+        checkIn: "-",
+        checkOut: "-",
+        status: "absent",
+        totalHours: "0m",
+        late: "0m",
+        earlyDeparture: "0m",
+        overtime: "0m",
+        totalMinutes: 0,
+        lateMinutes: 0,
+        earlyMinutes: 0,
+        overtimeMinutes: 0,
+      }));
+    
+    const allRecords = [...enrichedRecords, ...absentRecords];
+    const total = await prisma.attendance.count({ where }) + absentRecords.length;
 
     return NextResponse.json(
       {
-        data: enrichedRecords,
+        data: allRecords,
         pagination: {
           page,
           size,

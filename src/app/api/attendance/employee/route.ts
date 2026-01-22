@@ -12,7 +12,6 @@ const OFFICE_LOCATION = {
 
 // Shift times
 const SHIFT_START = "09:00";
-const SHIFT_END = "18:00";
 const LATE_THRESHOLD_MINUTES = 15; // Late if > 15 mins after shift start
 const HALF_DAY_HOURS = 4; // Less than 4 hours = half-day
 
@@ -44,10 +43,10 @@ function formatTime(date: Date): string {
   const minutes = pakTime.minutes;
   
   const hour12 = hours === 0 ? 12 : hours > 12 ? hours - 12 : hours;
-  const ampm = hours >= 12 ? "PM" : "AM";
+  const meridiem = hours >= 12 ? "PM" : "AM";
   const minStr = String(minutes).padStart(2, "0");
   
-  return `${String(hour12).padStart(2, "0")}:${minStr} ${ampm}`;
+  return `${String(hour12).padStart(2, "0")}:${minStr} ${meridiem}`;
 }
 
 // Helper: Format date to YYYY-MM-DD in Pakistan timezone
@@ -74,11 +73,6 @@ function getPakistanTime(date: Date): { hours: number; minutes: number } {
 function calculateHoursWorked(checkIn: Date | null, checkOut: Date | null): number {
   if (!checkIn || !checkOut) return 0;
   return (checkOut.getTime() - checkIn.getTime()) / (1000 * 60 * 60);
-}
-
-function getPakistanMinutes(date: Date): number {
-  const pakTime = getPakistanTime(date);
-  return pakTime.hours * 60 + pakTime.minutes;
 }
 
 // Helper: Determine status based on check-in time (Pakistan timezone)
@@ -182,19 +176,18 @@ export async function GET(req: Request) {
     }
     
     // Today's date for current status - use Pakistan timezone (UTC+5)
-    // Current time in Pakistan is now + 5 hours
-    // Pakistan midnight today = UTC (now - nowHours - nowMinutes - nowSeconds) + 19 hours
-    // Or simpler: Pakistan midnight today in UTC = (Pakistan date at 00:00 UTC+5)
+    // Pakistan midnight = UTC time - 5 hours at 00:00
+    const pakistanOffset = 5 * 60 * 60 * 1000; // 5 hours in milliseconds
+    const nowInPakistan = new Date(now.getTime() + pakistanOffset);
     
-    const todayStart = new Date(Date.UTC(
-      now.getUTCFullYear(),
-      now.getUTCMonth(),
-      now.getUTCDate(),
-      0, 0, 0, 0
-    ));
+    // Get today's date in Pakistan timezone
+    const pakYear = nowInPakistan.getUTCFullYear();
+    const pakMonth = nowInPakistan.getUTCMonth();
+    const pakDay = nowInPakistan.getUTCDate();
     
-    // Subtract 5 hours to get Pakistan midnight in UTC
-    todayStart.setUTCHours(todayStart.getUTCHours() - 5);
+    // Create Pakistan midnight in UTC (subtract 5 hours from Pakistan midnight)
+    const todayStart = new Date(Date.UTC(pakYear, pakMonth, pakDay, 0, 0, 0, 0));
+    todayStart.setTime(todayStart.getTime() - pakistanOffset);
     
     const todayEnd = new Date(todayStart.getTime() + (24 * 60 * 60 * 1000) - 1);
 
@@ -424,16 +417,22 @@ export async function POST(req: Request) {
     const now = new Date();
     
     // Use Pakistan timezone (UTC+5) for today's date
-    // Convert current UTC time to Pakistan time, then get midnight
-    const pakistanNow = new Date(now.getTime() + (5 * 60 * 60 * 1000)); // Add 5 hours for PKT
-    const todayStart = new Date(Date.UTC(
-      pakistanNow.getUTCFullYear(),
-      pakistanNow.getUTCMonth(),
-      pakistanNow.getUTCDate(),
-      0, 0, 0, 0
-    ));
-    // Subtract 5 hours to convert back to UTC
-    todayStart.setUTCHours(todayStart.getUTCHours() - 5);
+    // Pakistan midnight = UTC time - 5 hours at 00:00
+    // Example: If it's Jan 22, 2026 3:00 PM PKT = Jan 22, 2026 10:00 AM UTC
+    // Pakistan midnight of Jan 22 = Jan 21, 2026 7:00 PM UTC (19:00 UTC)
+    const pakistanOffset = 5 * 60 * 60 * 1000; // 5 hours in milliseconds
+    const nowInPakistan = new Date(now.getTime() + pakistanOffset);
+    
+    // Get today's date in Pakistan timezone
+    const pakYear = nowInPakistan.getUTCFullYear();
+    const pakMonth = nowInPakistan.getUTCMonth();
+    const pakDay = nowInPakistan.getUTCDate();
+    
+    // Create Pakistan midnight in UTC (subtract 5 hours from Pakistan midnight)
+    // Pakistan 00:00 = UTC 19:00 previous day
+    const todayStart = new Date(Date.UTC(pakYear, pakMonth, pakDay, 0, 0, 0, 0));
+    todayStart.setTime(todayStart.getTime() - pakistanOffset);
+    
     const todayEnd = new Date(todayStart.getTime() + (24 * 60 * 60 * 1000) - 1);
 
     const remoteWorkApproved = await prisma.remoteWorkRequest.findFirst({

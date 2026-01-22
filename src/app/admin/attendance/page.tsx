@@ -69,6 +69,17 @@ function minutesToHm(mins?: number): string {
   return h > 0 ? `${h}h ${m}m` : `${m}m`;
 }
 
+function format24hTo12h(time24h: string | null): string {
+  if (!time24h || time24h === "-") return "-";
+  const [hours, minutes] = time24h.split(":");
+  let h = parseInt(hours, 10);
+  const m = parseInt(minutes, 10);
+  const ap = h >= 12 ? "PM" : "AM";
+  if (h > 12) h -= 12;
+  if (h === 0) h = 12;
+  return `${h}:${String(m).padStart(2, "0")} ${ap}`;
+}
+
 function computeDeltas(
   checkIn: string,
   checkOut: string,
@@ -91,8 +102,8 @@ function Card({ children, className = "" }: React.PropsWithChildren<{ className?
   return (
     <div
       className={
-        `rounded-xl border shadow-sm backdrop-blur supports-[backdrop-filter]:bg-white/70 bg-white/90 ` +
-        `border-white/40 ${className}`
+        `rounded-xl border border-white/20 shadow-lg backdrop-blur-md bg-white/60 ` +
+        `hover:bg-white/70 transition-all duration-300 ${className}`
       }
     >
       {children}
@@ -117,12 +128,12 @@ function Badge({ color, children }: { color: "green" | "orange" | "red" | "blue"
 function ToolbarButton({ children, onClick, variant = "default" }: { children: React.ReactNode; onClick?: () => void; variant?: "default" | "primary" | "ghost" }) {
   const styles =
     variant === "primary"
-      ? "bg-blue-600 text-white hover:bg-blue-700"
+      ? "bg-gradient-to-r from-indigo-600 to-purple-600 text-white hover:from-indigo-700 hover:to-purple-700 shadow-md"
       : variant === "ghost"
-      ? "bg-transparent hover:bg-gray-50 border"
-      : "bg-gray-100 hover:bg-gray-200 border";
+      ? "bg-white/40 hover:bg-white/60 border border-white/30 backdrop-blur-sm shadow-sm text-gray-900"
+      : "bg-white/50 hover:bg-white/70 border border-white/30 backdrop-blur-sm shadow-sm text-gray-900 font-semibold";
   return (
-    <button onClick={onClick} className={`h-8 sm:h-9 px-2 sm:px-3 rounded-md text-xs sm:text-sm font-medium text-gray-800 ${styles}`}>
+    <button onClick={onClick} className={`h-8 sm:h-9 px-2 sm:px-3 rounded-lg text-xs sm:text-sm font-medium transition-all duration-200 ${styles}`}>
       {children}
     </button>
   );
@@ -149,7 +160,7 @@ function Modal({ open, onClose, title, children, footer }: { open: boolean; onCl
 // Page Component
 export default function Page() {
   // Tab state
-  const [tab, setTab] = React.useState<"shift" | "self" | "live">("shift");
+  const [tab, setTab] = React.useState<"overview" | "self" | "live">("overview");
 
   // Date state
   const todayIso = React.useMemo(() => new Date().toISOString().slice(0, 10), []);
@@ -159,8 +170,8 @@ export default function Page() {
   const [showDaily, setShowDaily] = React.useState<boolean>(true);
 
   // Shift config
-  const [shiftStart, setShiftStart] = React.useState<string>("09:00");
-  const [shiftEnd, setShiftEnd] = React.useState<string>("18:00");
+  const shiftStart = "09:00";
+  const shiftEnd = "18:00";
 
   // Department filter
   const [department, setDepartment] = React.useState<"all" | "engineering" | "marketing" | "sales" | "hr">("all");
@@ -178,15 +189,27 @@ export default function Page() {
     present: 0,
     late: 0,
     absent: 0,
+    halfDay: 0,
     avgPer: 0,
     avgHours: 0,
+    avgOvertime: 0,
   });
 
   const [isFilterOpen, setIsFilterOpen] = React.useState<boolean>(false);
   const [statusFilter, setStatusFilter] = React.useState<"all" | AttendanceStatus>("all");
-  const [isAssignOpen, setIsAssignOpen] = React.useState<boolean>(false);
-  const [assignStart, setAssignStart] = React.useState<string>(shiftStart);
-  const [assignEnd, setAssignEnd] = React.useState<string>(shiftEnd);
+  const [pendingRequestsCount, setPendingRequestsCount] = React.useState<number>(0);
+  // Derived aggregates for simple charts
+  const statusCounts = React.useMemo(() => {
+    const counts = { present: 0, late: 0, absent: 0, halfDay: 0 };
+    dailyData.forEach((row) => {
+      const s = row.status.toLowerCase();
+      if (s === "present") counts.present += 1;
+      else if (s === "late") counts.late += 1;
+      else if (s === "absent") counts.absent += 1;
+      else if (s === "half-day") counts.halfDay += 1;
+    });
+    return { ...counts, total: dailyData.length };
+  }, [dailyData]);
 
   const loadAttendanceData = React.useCallback(async () => {
     try {
@@ -212,7 +235,7 @@ export default function Page() {
   }, [selectedDate, department, shiftStart, shiftEnd]);
 
   React.useEffect(() => {
-    if (tab === "shift" && showDaily) {
+    if (tab === "overview" && showDaily) {
       loadAttendanceData();
     }
   }, [tab, showDaily, loadAttendanceData]);
@@ -233,12 +256,14 @@ export default function Page() {
         present: result.present || 0,
         late: result.late || 0,
         absent: result.absent || 0,
+        halfDay: result.halfDay || 0,
         avgPer: result.attendanceRate || 0,
         avgHours: result.avgHours || 0,
+        avgOvertime: result.avgOvertime || 0,
       });
     } catch (err) {
       console.error("Failed to load stats:", err);
-      setSummary({ present: 0, late: 0, absent: 0, avgPer: 0, avgHours: 0 });
+      setSummary({ present: 0, late: 0, absent: 0, halfDay: 0, avgPer: 0, avgHours: 0, avgOvertime: 0 });
     }
   }, [selectedDate, department, shiftStart, shiftEnd]);
 
@@ -256,10 +281,12 @@ export default function Page() {
       if (!response.ok) throw new Error("Failed to fetch requests");
       const result = await response.json();
       setRequests(result.data || []);
+      setPendingRequestsCount(result.data?.length || 0);
     } catch (err) {
       setError("Failed to load correction requests");
       console.error(err);
       setRequests([]);
+      setPendingRequestsCount(0);
     } finally {
       setLoading(false);
     }
@@ -367,69 +394,82 @@ export default function Page() {
   };
 
   return (
-    <div className="min-h-screen w-full overflow-x-hidden bg-gradient-to-br from-indigo-50 to-purple-50">
+    <div className="min-h-screen w-full overflow-x-hidden bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-100">
       <div className="mx-auto w-full max-w-7xl p-2 sm:p-4 lg:p-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 sm:gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 sm:gap-4 mb-6">
         <div className="min-w-0 flex-1">
-          <h1 className="text-xl sm:text-2xl font-semibold text-gray-900 truncate">Attendance Tracking</h1>
-          <p className="text-xs sm:text-sm text-gray-600">Monitor employee attendance and working hours</p>
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Attendance Tracking</h1>
+          <p className="text-xs sm:text-sm text-gray-800 font-medium mt-1">Monitor employee attendance and working hours</p>
         </div>
-        <div className="flex flex-wrap gap-1.5 sm:gap-2">
-          <ToolbarButton variant="ghost" onClick={handleExportPDF}>Export PDF</ToolbarButton>
-          <ToolbarButton variant="ghost" onClick={handleExportExcel}>Export Excel</ToolbarButton>
+        <div className="flex flex-wrap gap-2 sm:gap-3">
+          <ToolbarButton variant="default" onClick={handleExportPDF}>
+            <span className="text-sm font-semibold">📄 Export PDF</span>
+          </ToolbarButton>
+          <ToolbarButton variant="default" onClick={handleExportExcel}>
+            <span className="text-sm font-semibold">📊 Export Excel</span>
+          </ToolbarButton>
         </div>
       </div>
 
       {/* Stats */}
-      <div className="mt-3 sm:mt-4 grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3 lg:gap-4">
-        <Card className="p-2 sm:p-3 lg:p-4">
+      <div className="mt-3 sm:mt-4 grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3">
+        <Card className="p-2 sm:p-3 lg:p-4 bg-gradient-to-br from-green-50/80 to-emerald-50/80 border-green-200/30">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
             <div className="min-w-0 flex-1">
-              <p className="text-xs sm:text-sm text-gray-600 truncate">Present Today</p>
-              <p className="mt-1 sm:mt-2 text-lg sm:text-2xl font-semibold text-gray-900">{summary.present}</p>
-              <p className="text-[10px] sm:text-xs text-gray-500 mt-0.5 sm:mt-1 truncate">{summary.avgPer}% attendance rate</p>
+              <p className="text-xs sm:text-sm text-gray-900 font-bold truncate">Present Today</p>
+              <p className="mt-1 sm:mt-2 text-lg sm:text-2xl font-bold text-gray-900">{summary.present}</p>
+              <p className="text-[10px] sm:text-xs text-gray-800 font-semibold mt-0.5 sm:mt-1 truncate">{summary.avgPer}% attendance rate</p>
             </div>
             <Badge color="green">OK</Badge>
           </div>
         </Card>
-        <Card className="p-2 sm:p-3 lg:p-4">
+        <Card className="p-2 sm:p-3 lg:p-4 bg-gradient-to-br from-orange-50/80 to-amber-50/80 border-orange-200/30">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
             <div className="min-w-0 flex-1">
-              <p className="text-xs sm:text-sm text-gray-600 truncate">Late Arrivals</p>
-              <p className="mt-1 sm:mt-2 text-lg sm:text-2xl font-semibold text-gray-900">{summary.late}</p>
-              <p className="text-[10px] sm:text-xs text-gray-500 mt-0.5 sm:mt-1 truncate">of workforce</p>
+              <p className="text-xs sm:text-sm text-gray-900 font-bold truncate">Late Arrivals</p>
+              <p className="mt-1 sm:mt-2 text-lg sm:text-2xl font-bold text-gray-900">{summary.late}</p>
+              <p className="text-[10px] sm:text-xs text-gray-800 font-semibold mt-0.5 sm:mt-1 truncate">of workforce</p>
             </div>
             <Badge color="orange">Late</Badge>
           </div>
         </Card>
-        <Card className="p-2 sm:p-3 lg:p-4">
+        <Card className="p-2 sm:p-3 lg:p-4 bg-gradient-to-br from-blue-50/80 to-cyan-50/80 border-blue-200/30">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
             <div className="min-w-0 flex-1">
-              <p className="text-xs sm:text-sm text-gray-600 truncate">Absent</p>
-              <p className="mt-1 sm:mt-2 text-lg sm:text-2xl font-semibold text-gray-900">{summary.absent}</p>
-              <p className="text-[10px] sm:text-xs text-gray-500 mt-0.5 sm:mt-1 truncate">of workforce</p>
+              <p className="text-xs sm:text-sm text-gray-900 font-bold truncate">Half-Day</p>
+              <p className="mt-1 sm:mt-2 text-lg sm:text-2xl font-bold text-gray-900">{summary.halfDay}</p>
+              <p className="text-[10px] sm:text-xs text-gray-800 font-semibold mt-0.5 sm:mt-1 truncate">of workforce</p>
             </div>
-            <Badge color="red">Issue</Badge>
+            <Badge color="blue">Partial</Badge>
           </div>
         </Card>
-        <Card className="p-2 sm:p-3 lg:p-4">
+        <Card className="p-2 sm:p-3 lg:p-4 bg-gradient-to-br from-red-50/80 to-rose-50/80 border-red-200/30">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
             <div className="min-w-0 flex-1">
-              <p className="text-xs sm:text-sm text-gray-600 truncate">Avg. Hours</p>
-              <p className="mt-1 sm:mt-2 text-lg sm:text-2xl font-semibold text-gray-900">{summary.avgHours}h</p>
-              <p className="text-[10px] sm:text-xs text-gray-500 mt-0.5 sm:mt-1 truncate">Per employee today</p>
+              <p className="text-xs sm:text-sm text-gray-900 font-bold truncate">Absent</p>
+              <p className="mt-1 sm:mt-2 text-lg sm:text-2xl font-bold text-gray-900">{summary.absent}</p>
+              <p className="text-[10px] sm:text-xs text-gray-800 font-semibold mt-0.5 sm:mt-1 truncate">of workforce</p>
             </div>
-            <Badge color="blue">Info</Badge>
+            <Badge color="red">Issue</Badge>
           </div>
         </Card>
       </div>
 
       {/* Tabs */}
       <div className="mt-3 sm:mt-4">
-        <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
-          <ToolbarButton variant={tab === "shift" ? "primary" : "ghost"} onClick={() => setTab("shift")}>Shift Management</ToolbarButton>
-          <ToolbarButton variant={tab === "self" ? "primary" : "ghost"} onClick={() => setTab("self")}>Self-Service</ToolbarButton>
+        <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap border-b border-white/30 backdrop-blur-sm pb-2">
+          <ToolbarButton variant={tab === "overview" ? "primary" : "ghost"} onClick={() => setTab("overview")}>Overview</ToolbarButton>
+          <ToolbarButton variant={tab === "self" ? "primary" : "ghost"} onClick={() => setTab("self")}>
+            <span className="flex items-center gap-1.5">
+              Requests
+              {pendingRequestsCount > 0 && (
+                <span className="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 text-[10px] font-bold text-white bg-gradient-to-br from-red-500 to-red-600 rounded-full animate-pulse shadow-md">
+                  {pendingRequestsCount}
+                </span>
+              )}
+            </span>
+          </ToolbarButton>
           <ToolbarButton variant={tab === "live" ? "primary" : "ghost"} onClick={() => setTab("live")}>Live Status</ToolbarButton>
         </div>
       </div>
@@ -458,8 +498,8 @@ export default function Page() {
         </div>
       </div>
 
-      {/* Shift Management */}
-      {tab === "shift" && (
+      {/* Overview */}
+      {tab === "overview" && (
         <div className="mt-4 flex flex-col gap-6 items-start">
           {showDaily && (
             <Card className="w-full">
@@ -484,60 +524,207 @@ export default function Page() {
                     </select>
                     <ToolbarButton onClick={() => setIsDateDialogOpen(true)}>Change Date</ToolbarButton>
                     <ToolbarButton onClick={() => setIsFilterOpen(true)}>Filter</ToolbarButton>
-                    <ToolbarButton variant="primary" onClick={() => { setAssignStart(shiftStart); setAssignEnd(shiftEnd); setIsAssignOpen(true); }}>Assign Shifts</ToolbarButton>
                   </div>
                 </div>
 
-                {/* Shift inputs */}
-                <div className="mt-3 sm:mt-4 grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3">
-                  <div className="flex items-center gap-2">
-                    <label className="text-xs sm:text-sm text-gray-700 w-20 sm:w-24 flex-shrink-0">Shift Start</label>
-                    <input
-                      type="time"
-                      className="h-9 w-full rounded-md border border-gray-300 px-3 text-sm bg-white text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                      value={shiftStart}
-                      onChange={(e) => setShiftStart(e.target.value)}
-                    />
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <label className="text-xs sm:text-sm text-gray-700 w-20 sm:w-24 flex-shrink-0">Shift End</label>
-                    <input
-                      type="time"
-                      className="h-9 w-full rounded-md border border-gray-300 px-3 text-sm bg-white text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                      value={shiftEnd}
-                      onChange={(e) => setShiftEnd(e.target.value)}
-                    />
-                  </div>
+                {/* Quick insights */}
+                <div className="mt-6 grid grid-cols-1 lg:grid-cols-3 gap-4">
+                  {/* Status Breakdown Chart */}
+                  <Card className="p-4 sm:p-5 bg-gradient-to-br from-indigo-50/80 to-purple-50/80 border-indigo-200/30">
+                    <div className="flex items-center justify-between mb-1">
+                      <h3 className="text-base sm:text-lg font-bold text-gray-900">Status Breakdown</h3>
+                      <span className="text-sm text-gray-800 font-semibold">{statusCounts.total} records</span>
+                    </div>
+                    <div className="mt-4 space-y-4">
+                      {[
+                        { label: "Present", value: statusCounts.present, color: "bg-green-500" },
+                        { label: "Late", value: statusCounts.late, color: "bg-orange-500" },
+                        { label: "Half-day", value: statusCounts.halfDay, color: "bg-blue-500" },
+                        { label: "Absent", value: statusCounts.absent, color: "bg-red-500" }
+                      ]
+                        .filter((item) => statusCounts.total > 0 || item.value > 0)
+                        .map((item) => {
+                          const pct = statusCounts.total > 0 ? Math.round((item.value / statusCounts.total) * 100) : 0;
+                          return (
+                            <div key={item.label}>
+                              <div className="flex items-center justify-between text-sm text-gray-900">
+                                <span className="font-bold">{item.label}</span>
+                                <span className="font-bold text-base text-gray-900">{item.value} ({pct}%)</span>
+                              </div>
+                              <div className="mt-2 h-4 w-full rounded-full bg-white/40 backdrop-blur-sm relative overflow-hidden shadow-inner">
+                                <div 
+                                  className={`h-4 rounded-full ${item.color} transition-all duration-500 shadow-md`} 
+                                  style={{ width: `${pct}%` }} 
+                                />
+                              </div>
+                            </div>
+                          );
+                        })}
+                    </div>
+                    {/* Pie Chart Visual */}
+                    <div className="mt-6 flex items-center justify-center">
+                      <div className="relative w-48 h-48 transform hover:scale-105 transition-transform duration-300">
+                        <svg viewBox="0 0 100 100" className="transform -rotate-90 drop-shadow-lg filter">
+                          {(() => {
+                            let currentAngle = 0;
+                            const colors = ["#22c55e", "#f97316", "#3b82f6", "#ef4444"];
+                            const values = [statusCounts.present, statusCounts.late, statusCounts.halfDay, statusCounts.absent];
+                            const total = statusCounts.total || 1;
+                            return values.map((value, idx) => {
+                              const percentage = (value / total) * 100;
+                              const angle = (percentage / 100) * 360;
+                              const startAngle = currentAngle;
+                              currentAngle += angle;
+                              const x1 = 50 + 40 * Math.cos((startAngle * Math.PI) / 180);
+                              const y1 = 50 + 40 * Math.sin((startAngle * Math.PI) / 180);
+                              const x2 = 50 + 40 * Math.cos((currentAngle * Math.PI) / 180);
+                              const y2 = 50 + 40 * Math.sin((currentAngle * Math.PI) / 180);
+                              const largeArc = angle > 180 ? 1 : 0;
+                              return value > 0 ? (
+                                <path
+                                  key={idx}
+                                  d={`M 50 50 L ${x1} ${y1} A 40 40 0 ${largeArc} 1 ${x2} ${y2} Z`}
+                                  fill={colors[idx]}
+                                  opacity="0.9"
+                                />
+                              ) : null;
+                            });
+                          })()}
+                        </svg>
+                      </div>
+                    </div>
+                  </Card>
+                  
+                  {/* Hours vs Target Chart */}
+                  <Card className="p-4 sm:p-5 bg-gradient-to-br from-blue-50/80 to-cyan-50/80 border-blue-200/30">
+                    <div className="flex items-center justify-between mb-1">
+                      <h3 className="text-base sm:text-lg font-bold text-gray-900">Hours Analytics</h3>
+                      <span className="text-sm text-gray-800 font-semibold">Target 8h</span>
+                    </div>
+                    <div className="mt-4 space-y-4">
+                      <div>
+                        <div className="flex items-center justify-between text-sm text-gray-900">
+                          <span className="font-bold">Average Hours</span>
+                          <span className="font-bold text-base text-gray-900">{summary.avgHours}h / 8h</span>
+                        </div>
+                        <div className="mt-2 h-4 w-full rounded-full bg-white/40 backdrop-blur-sm relative overflow-hidden shadow-inner">
+                          <div 
+                            className="h-4 rounded-full bg-indigo-500 transition-all duration-500 shadow-md" 
+                            style={{ width: `${Math.min(100, Math.round((summary.avgHours / 8) * 100))}%` }} 
+                          />
+                        </div>
+                      </div>
+                      <div>
+                        <div className="flex items-center justify-between text-sm text-gray-900">
+                          <span className="font-bold">Avg Overtime</span>
+                          <span className="font-bold text-base">{summary.avgOvertime}h</span>
+                        </div>
+                        <div className="mt-2 h-4 w-full rounded-full bg-white/40 backdrop-blur-sm relative overflow-hidden shadow-inner">
+                          <div 
+                            className="h-4 rounded-full bg-purple-500 transition-all duration-500 shadow-md" 
+                            style={{ width: `${Math.min(100, Math.round((summary.avgOvertime / 2) * 100))}%` }} 
+                          />
+                        </div>
+                      </div>
+                    </div>
+                    {/* Bar Chart */}
+                    <div className="mt-6">
+                      <div className="flex items-end justify-around h-40 gap-3">
+                        {[
+                          { label: "Avg", value: summary.avgHours, color: "bg-gradient-to-t from-indigo-600 to-indigo-400", max: 10 },
+                          { label: "Target", value: 8, color: "bg-gradient-to-t from-gray-500 to-gray-300", max: 10 },
+                          { label: "OT", value: summary.avgOvertime, color: "bg-gradient-to-t from-purple-600 to-purple-400", max: 10 }
+                        ].map((item) => (
+                          <div key={item.label} className="flex-1 flex flex-col items-center">
+                            <div className="w-full flex items-end justify-center h-32">
+                              <div 
+                                className={`w-full ${item.color} rounded-t-lg transition-all duration-500 shadow-lg hover:shadow-xl hover:scale-105`}
+                                style={{ height: `${(item.value / item.max) * 100}%` }}
+                              />
+                            </div>
+                            <p className="text-xs text-gray-600 mt-2 font-medium">{item.label}</p>
+                            <p className="text-sm text-gray-900 font-bold">{item.value}h</p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </Card>
+                  
+                  {/* Summary Stats */}
+                  <Card className="p-4 sm:p-5 bg-gradient-to-br from-gray-50/80 to-slate-50/80 border-gray-200/30">
+                    <div className="flex items-center justify-between mb-1">
+                      <h3 className="text-base sm:text-lg font-bold text-gray-900">Quick Stats</h3>
+                    </div>
+                    <div className="mt-4 grid grid-cols-2 gap-3 text-xs text-gray-900">
+                      <div className="rounded-lg border border-green-200/50 bg-green-50/60 backdrop-blur-sm px-4 py-3 shadow-sm hover:shadow-md transition-shadow">
+                        <p className="text-xs text-gray-800 font-bold">Present</p>
+                        <p className="text-2xl font-bold text-gray-900 mt-1">{summary.present}</p>
+                      </div>
+                      <div className="rounded-lg border border-orange-200/50 bg-orange-50/60 backdrop-blur-sm px-4 py-3 shadow-sm hover:shadow-md transition-shadow">
+                        <p className="text-xs text-gray-800 font-bold">Late</p>
+                        <p className="text-2xl font-bold text-gray-900 mt-1">{summary.late}</p>
+                      </div>
+                      <div className="rounded-lg border border-blue-200/50 bg-blue-50/60 backdrop-blur-sm px-4 py-3 shadow-sm hover:shadow-md transition-shadow">
+                        <p className="text-xs text-gray-800 font-bold">Half-Day</p>
+                        <p className="text-2xl font-bold text-gray-900 mt-1">{summary.halfDay}</p>
+                      </div>
+                      <div className="rounded-lg border border-red-200/50 bg-red-50/60 backdrop-blur-sm px-4 py-3 shadow-sm hover:shadow-md transition-shadow">
+                        <p className="text-xs text-gray-800 font-bold">Absent</p>
+                        <p className="text-2xl font-bold text-gray-900 mt-1">{summary.absent}</p>
+                      </div>
+                      <div className="rounded-lg border border-indigo-200/50 bg-indigo-50/60 backdrop-blur-sm px-4 py-3 shadow-sm hover:shadow-md transition-shadow">
+                        <p className="text-xs text-gray-800 font-bold">Avg Hours</p>
+                        <p className="text-2xl font-bold text-gray-900 mt-1">{summary.avgHours}h</p>
+                      </div>
+                      <div className="rounded-lg border border-purple-200/50 bg-purple-50/60 backdrop-blur-sm px-4 py-3 shadow-sm hover:shadow-md transition-shadow">
+                        <p className="text-xs text-gray-800 font-bold">Attendance</p>
+                        <p className="text-2xl font-bold text-gray-900 mt-1">{summary.avgPer}%</p>
+                      </div>
+                    </div>
+                  </Card>
                 </div>
 
                 {/* Table */}
                 <div className="mt-4 sm:mt-6 -mx-2 sm:mx-0">
-                  <div className="overflow-x-auto">
-                    <table className="min-w-full divide-y divide-gray-200 text-xs sm:text-sm">
-                      <thead className="bg-gray-50">
+                  <div className="overflow-x-auto rounded-lg backdrop-blur-sm bg-white/40 border border-white/30 shadow-md">
+                    <table className="min-w-full divide-y divide-white/30 text-xs sm:text-sm">
+                      <thead className="bg-gradient-to-r from-indigo-50/80 to-purple-50/80 backdrop-blur-md">
                         <tr>
-                          <th className="px-2 sm:px-4 py-2 sm:py-3 text-left text-[10px] sm:text-xs font-medium text-gray-600 uppercase tracking-wider">Employee</th>
-                          <th className="px-2 sm:px-4 py-2 sm:py-3 text-left text-[10px] sm:text-xs font-medium text-gray-600 uppercase tracking-wider">Check In</th>
-                          <th className="px-2 sm:px-4 py-2 sm:py-3 text-left text-[10px] sm:text-xs font-medium text-gray-600 uppercase tracking-wider">Check Out</th>
-                          <th className="px-2 sm:px-4 py-2 sm:py-3 text-left text-[10px] sm:text-xs font-medium text-gray-600 uppercase tracking-wider hidden md:table-cell">Total Hours</th>
-                          <th className="px-2 sm:px-4 py-2 sm:py-3 text-left text-[10px] sm:text-xs font-medium text-gray-600 uppercase tracking-wider hidden md:table-cell">Late</th>
-                          <th className="px-2 sm:px-4 py-2 sm:py-3 text-left text-[10px] sm:text-xs font-medium text-gray-600 uppercase tracking-wider hidden lg:table-cell">Early Dep.</th>
-                          <th className="px-2 sm:px-4 py-2 sm:py-3 text-left text-[10px] sm:text-xs font-medium text-gray-600 uppercase tracking-wider hidden lg:table-cell">Overtime</th>
-                          <th className="px-2 sm:px-4 py-2 sm:py-3 text-left text-[10px] sm:text-xs font-medium text-gray-600 uppercase tracking-wider">Status</th>
+                          <th className="px-2 sm:px-4 py-2 sm:py-3 text-left text-[10px] sm:text-xs font-semibold text-gray-700 uppercase tracking-wider">Employee</th>
+                          <th className="px-2 sm:px-4 py-2 sm:py-3 text-left text-[10px] sm:text-xs font-semibold text-gray-700 uppercase tracking-wider">Check In</th>
+                          <th className="px-2 sm:px-4 py-2 sm:py-3 text-left text-[10px] sm:text-xs font-semibold text-gray-700 uppercase tracking-wider">Check Out</th>
+                          <th className="px-2 sm:px-4 py-2 sm:py-3 text-left text-[10px] sm:text-xs font-semibold text-gray-700 uppercase tracking-wider hidden md:table-cell">Total Hours</th>
+                          <th className="px-2 sm:px-4 py-2 sm:py-3 text-left text-[10px] sm:text-xs font-semibold text-gray-700 uppercase tracking-wider hidden md:table-cell">Late</th>
+                          <th className="px-2 sm:px-4 py-2 sm:py-3 text-left text-[10px] sm:text-xs font-semibold text-gray-700 uppercase tracking-wider">Status</th>
                         </tr>
                       </thead>
-                      <tbody className="bg-white divide-y divide-gray-100">
+                      <tbody className="bg-white/20 backdrop-blur-sm divide-y divide-white/20">
                         {dailyData
                           .filter((row) => (statusFilter === "all" ? true : row.status === statusFilter))
                           .map((row) => {
                             const deltas = computeDeltas(row.checkIn, row.checkOut, shiftStart, shiftEnd);
-                            const statusColor = row.status === "Present" ? "green" : row.status === "Late" ? "orange" : "red";
+                            const statusLower = row.status.toLowerCase();
+                            let statusColor: "green" | "orange" | "red" | "blue" = "red";
+                            let rowBgColor = "";
+                            
+                            if (statusLower === "present") {
+                              statusColor = "green";
+                              rowBgColor = "bg-green-50/60 backdrop-blur-sm";
+                            } else if (statusLower === "late") {
+                              statusColor = "orange";
+                              rowBgColor = "bg-orange-50/60 backdrop-blur-sm";
+                            } else if (statusLower === "half-day") {
+                              statusColor = "blue";
+                              rowBgColor = "bg-blue-50/60 backdrop-blur-sm";
+                            } else if (statusLower === "absent") {
+                              statusColor = "red";
+                              rowBgColor = "bg-red-50/60 backdrop-blur-sm";
+                            }
+                            
                             const totalStr = minutesToHm(deltas.total);
                             const lateStr = minutesToHm(deltas.late);
-                            const earlyStr = minutesToHm(deltas.early);
-                            const otStr = minutesToHm(deltas.ot);
                             return (
-                              <tr key={row.id} className="hover:bg-gray-50">
+                              <tr key={row.id} className={`hover:bg-white/50 transition-colors duration-150 ${rowBgColor}`}>
                                 <td className="px-2 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm text-gray-900 max-w-[100px] sm:max-w-[160px] truncate">{row.employee}</td>
                                 <td className="px-2 sm:px-4 py-2 sm:py-3 whitespace-nowrap text-xs sm:text-sm text-gray-900">{row.checkIn}</td>
                                 <td className="px-2 sm:px-4 py-2 sm:py-3 whitespace-nowrap text-xs sm:text-sm text-gray-900">{row.checkOut}</td>
@@ -545,14 +732,8 @@ export default function Page() {
                                 <td className="px-2 sm:px-4 py-2 sm:py-3 whitespace-nowrap text-xs sm:text-sm text-gray-700 hidden md:table-cell">
                                   {deltas.late > 0 ? <Badge color="orange">{lateStr}</Badge> : <span className="text-gray-400">-</span>}
                                 </td>
-                                <td className="px-2 sm:px-4 py-2 sm:py-3 whitespace-nowrap text-xs sm:text-sm text-gray-700 hidden lg:table-cell">
-                                  {deltas.early > 0 ? <Badge color="orange">{earlyStr}</Badge> : <span className="text-gray-400">-</span>}
-                                </td>
-                                <td className="px-2 sm:px-4 py-2 sm:py-3 whitespace-nowrap text-xs sm:text-sm text-gray-700 hidden lg:table-cell">
-                                  {deltas.ot > 0 ? <Badge color="blue">{otStr}</Badge> : <span className="text-gray-400">-</span>}
-                                </td>
                                 <td className="px-2 sm:px-4 py-2 sm:py-3 whitespace-nowrap text-xs sm:text-sm text-gray-700">
-                                  <Badge color={statusColor as "green" | "orange" | "red"}>{row.status}</Badge>
+                                  <Badge color={statusColor}>{row.status}</Badge>
                                 </td>
                               </tr>
                             );
@@ -605,12 +786,12 @@ export default function Page() {
                         <td className="px-4 py-3 text-sm text-gray-700">
                           <div className="flex flex-col gap-1">
                             <div>
-                              <span className="text-gray-500 mr-1">In:</span>
-                              <span>{r.requestedCheckIn ?? "-"}</span>
+                              <span className="text-gray-500 mr-1 font-medium">In:</span>
+                              <span className="font-semibold text-gray-900">{format24hTo12h(r.requestedCheckIn)}</span>
                             </div>
                             <div>
-                              <span className="text-gray-500 mr-1">Out:</span>
-                              <span>{r.requestedCheckOut ?? "-"}</span>
+                              <span className="text-gray-500 mr-1 font-medium">Out:</span>
+                              <span className="font-semibold text-gray-900">{format24hTo12h(r.requestedCheckOut)}</span>
                             </div>
                           </div>
                         </td>
@@ -747,43 +928,6 @@ export default function Page() {
         </div>
       </Modal>
 
-      <Modal
-        open={isAssignOpen}
-        onClose={() => setIsAssignOpen(false)}
-        title="Assign Shift"
-        footer={
-          <>
-            <ToolbarButton onClick={() => setIsAssignOpen(false)}>Cancel</ToolbarButton>
-            <ToolbarButton
-              variant="primary"
-              onClick={() => { setShiftStart(assignStart); setShiftEnd(assignEnd); setIsAssignOpen(false); loadAttendanceData(); }}
-            >
-              Save
-            </ToolbarButton>
-          </>
-        }
-      >
-        <div className="grid grid-cols-1 gap-3">
-          <div className="flex items-center gap-2">
-            <label className="text-sm text-gray-700 w-28">Shift Start</label>
-            <input
-              type="time"
-              className="h-9 w-full rounded-md border border-gray-300 px-3 text-sm bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-              value={assignStart}
-              onChange={(e) => setAssignStart(e.target.value)}
-            />
-          </div>
-          <div className="flex items-center gap-2">
-            <label className="text-sm text-gray-700 w-28">Shift End</label>
-            <input
-              type="time"
-              className="h-9 w-full rounded-md border border-gray-300 px-3 text-sm bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-              value={assignEnd}
-              onChange={(e) => setAssignEnd(e.target.value)}
-            />
-          </div>
-        </div>
-      </Modal>
       </div>
     </div>
   );
