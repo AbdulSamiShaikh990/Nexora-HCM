@@ -106,6 +106,52 @@ model Leave {
   isPaid     Boolean?
 }
 
+model PayrollRun {
+  id          Int       @id @default(autoincrement())
+  periodYear  Int
+  periodMonth Int
+  status      String    @default("processing") // processing | processed | failed
+  currency    String    @default("USD")
+  processedAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  records PayrollRecord[]
+
+  @@unique([periodYear, periodMonth])
+  @@index([periodYear, periodMonth])
+}
+
+model PayrollRecord {
+  id               Int         @id @default(autoincrement())
+  runId            Int
+  employeeId       Int
+  department       String?
+  baseSalary       Float       // monthly base
+  bonus            Float       @default(0)
+  deductions       Float       @default(0) // includes leave deductions
+  netPay           Float       @default(0)
+  overtimeHours    Float       @default(0)
+  unpaidLeaveDays  Int         @default(0)
+  paidLeaveDays    Int         @default(0)
+  absentDays       Int         @default(0) // absent without leave
+  chargeableLeave  Int         @default(0) // days deducted (unpaid + excess over allowance)
+  workingDays      Int         @default(22)
+  status           String      @default("Pending") // Pending | Processed
+  payDate          DateTime?
+  periodYear       Int
+  periodMonth      Int
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
+
+  run      PayrollRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+  employee Employee   @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@index([runId])
+  @@index([employeeId])
+  @@index([periodYear, periodMonth])
+}
+
 model Payroll {
   id         Int      @id @default(autoincrement())
   month      String
@@ -325,43 +371,4 @@ model Task {
   @@index([assignedToId])
   @@index([status])
   @@index([dueDate])
-}
-
-/// Normalized Payroll models (added in addition to legacy `Payroll` model)
-model PayrollRun {
-  id          Int           @id @default(autoincrement())
-  periodYear  Int           // e.g., 2025
-  periodMonth Int           // 1-12
-  status      String        @default("draft") // draft | processing | processed | failed
-  currency    String        @default("USD")
-  processedAt DateTime?
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime      @updatedAt
-
-  records     PayrollRecord[]
-
-  @@unique([periodYear, periodMonth])
-  @@index([status])
-}
-
-model PayrollRecord {
-  id          Int       @id @default(autoincrement())
-  runId       Int
-  employeeId  Int
-  department  String?
-  baseSalary  Float     // stored in USD baseline
-  bonus       Float?
-  deductions  Float?
-  netPay      Float
-  status      String    @default("Pending")
-  payDate     DateTime?
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-
-  employee Employee  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
-  run      PayrollRun @relation(fields: [runId], references: [id], onDelete: Cascade)
-
-  @@index([employeeId])
-  @@index([runId])
-  @@index([status])
 }

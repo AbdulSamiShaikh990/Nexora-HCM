@@ -2,25 +2,10 @@ import { NextResponse } from "next/server";
 import { PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient();
-// Use a loose handle to avoid TS property errors until migration is applied
-const db: any = prisma as any;
 
-// Types (in-file only; no DB models yet)
 type PayrollStatus = "Processed" | "Pending";
-interface PayrollRecordInput {
-  employeeId: number;
-  employeeName?: string;
-  department?: string;
-  baseSalary: number; // USD baseline
-  bonus?: number; // USD baseline
-  deductions?: number; // USD baseline
-  payDate: string; // ISO or MM/DD/YYYY
-  status?: PayrollStatus;
-  period?: string; // e.g. 2025-10, 2025-W02
-  currency?: "USD" | "PKR" | "EUR"; // client display only; storage is USD
-}
 
-// GET /api/payroll -> list payroll records (no data yet)
+// GET /api/payroll -> list payroll records
 export async function GET(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
@@ -38,8 +23,7 @@ export async function GET(req: Request) {
       whereRun = { periodYear: y, periodMonth: m };
     }
 
-    const run = await db.payrollRun?.findFirst({ where: whereRun });
-
+    const run = await prisma.payrollRun.findFirst({ where: whereRun });
     const runId = run?.id;
 
     const where: any = {};
@@ -48,14 +32,14 @@ export async function GET(req: Request) {
     if (status) where.status = status;
     if (employeeId) where.employeeId = Number(employeeId);
 
-    const total = await db.payrollRecord?.count({ where }) ?? 0;
-    const data = await db.payrollRecord?.findMany({
+    const total = await prisma.payrollRecord.count({ where });
+    const data = await prisma.payrollRecord.findMany({
       where,
       orderBy: { id: "desc" },
       skip: (page - 1) * pageSize,
       take: pageSize,
       include: { employee: true, run: true },
-    }) ?? [];
+    });
 
     return NextResponse.json(
       {
@@ -92,33 +76,49 @@ function overlapDays(aStart: Date, aEnd: Date, bStart: Date, bEnd: Date) {
   return Math.max(0, Math.floor(diff));
 }
 
+function hoursBetween(checkIn?: Date | null, checkOut?: Date | null) {
+  if (!checkIn || !checkOut) return 0;
+  const diffMs = checkOut.getTime() - checkIn.getTime();
+  return Math.max(0, diffMs / (1000 * 60 * 60));
+}
+
 // POST /api/payroll/run -> create or recalc a payroll run for year-month
 export async function POST(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
     const year = Number(searchParams.get("year"));
     const month = Number(searchParams.get("month")); // 1-12
+    const taxRate = Number(searchParams.get("taxRate") || 0); // Tax rate in percentage (e.g., 10 for 10%)
     if (!year || !month) return NextResponse.json({ error: "Provide year and month" }, { status: 400 });
-
-    // upsert run
-    const run = await db.payrollRun.upsert({
-      where: { periodYear_periodMonth: { periodYear: year, periodMonth: month } },
-      update: { status: "processing" },
-      create: { periodYear: year, periodMonth: month, status: "processing", currency: "USD" },
-    });
 
     const workingDays = businessDaysInMonth(year, month);
     const periodStart = new Date(year, month - 1, 1);
     const periodEnd = new Date(year, month, 0);
 
+    const run = await prisma.payrollRun.upsert({
+      where: { periodYear_periodMonth: { periodYear: year, periodMonth: month } },
+      update: { status: "processing" },
+      create: { periodYear: year, periodMonth: month, status: "processing", currency: "PKR" },
+    });
+
     const employees = await prisma.employee.findMany({ where: { status: "Active" } });
 
+    if (employees.length === 0) {
+      return NextResponse.json(
+        { error: "No active employees found. Please add employees with Active status first." },
+        { status: 400 }
+      );
+    }
+
     // clear existing records for this run
-    await db.payrollRecord.deleteMany({ where: { runId: run.id } });
+    await prisma.payrollRecord.deleteMany({ where: { runId: run.id } });
 
     for (const emp of employees) {
+      // Use employee's actual salary from database
       const base = Number(emp.salary ?? 0);
-      // fetch approved leaves within period; deduct when isPaid=false
+      const allowance = Math.max(0, emp.leaveBalance ?? 0);
+
+      // Get approved leaves for this period
       const leaves = await prisma.leave.findMany({
         where: {
           employeeId: emp.id,
@@ -132,36 +132,154 @@ export async function POST(req: Request) {
         },
       });
 
-      let unpaidDays = 0;
+      // Calculate leave days
+      let paidLeaveDays = 0;
+      let unpaidLeaveDays = 0;
+      const approvedLeaveDates = new Set<string>(); // Track dates with approved leave
+      
       for (const lv of leaves) {
-        const isPaid = lv.isPaid === true; // if false or null => treat as unpaid for deduction
-        if (isPaid) continue; // do NOT deduct paid leaves
         const days = overlapDays(lv.startDate, lv.endDate, periodStart, periodEnd);
-        unpaidDays += days;
+        if (lv.isPaid === true) {
+          paidLeaveDays += days;
+        } else {
+          unpaidLeaveDays += days;
+        }
+        // Mark all dates in this leave as approved
+        const lvStart = lv.startDate > periodStart ? lv.startDate : periodStart;
+        const lvEnd = lv.endDate < periodEnd ? lv.endDate : periodEnd;
+        const d = new Date(lvStart);
+        while (d <= lvEnd) {
+          approvedLeaveDates.add(d.toISOString().split('T')[0]);
+          d.setDate(d.getDate() + 1);
+        }
       }
 
-      const dailyRate = workingDays > 0 ? base / workingDays : 0;
-      const leaveDeduction = Math.max(0, Math.round(dailyRate * unpaidDays));
-      const bonus = 0;
-      const otherDeductions = 0;
-      const net = Math.max(0, base + bonus - (otherDeductions + leaveDeduction));
+      // Get attendance records for this period
+      const attendances = await prisma.attendance.findMany({
+        where: {
+          employeeId: emp.id,
+          date: { gte: periodStart, lte: periodEnd },
+        },
+      });
 
-      await db.payrollRecord.create({
+      // Create a map of dates with attendance records
+      const attendanceDates = new Map<string, typeof attendances[0]>();
+      for (const a of attendances) {
+        const dateStr = a.date.toISOString().split('T')[0];
+        attendanceDates.set(dateStr, a);
+      }
+
+      // Calculate overtime and absent days
+      let overtimeHours = 0;
+      let absentWithoutLeave = 0;
+      
+      console.log(`Processing attendance for ${emp.firstName} ${emp.lastName}:`);
+      console.log(`Found ${attendances.length} attendance records`);
+
+      // Loop through all weekdays (Mon-Fri) in the period
+      const today = new Date();
+      const currentDate = new Date(periodStart);
+      
+      while (currentDate <= periodEnd && currentDate <= today) {
+        const dayOfWeek = currentDate.getDay();
+        const dateStr = currentDate.toISOString().split('T')[0];
+        
+        // Skip weekends (Saturday=6, Sunday=0)
+        if (dayOfWeek !== 0 && dayOfWeek !== 6) {
+          const attendance = attendanceDates.get(dateStr);
+          
+          if (!attendance) {
+            // No check-in record for this weekday
+            if (!approvedLeaveDates.has(dateStr)) {
+              // No attendance AND no approved leave = Absent
+              absentWithoutLeave += 1;
+              console.log(`${emp.firstName}: NO CHECK-IN (Absent) on ${dateStr}`);
+            } else {
+              console.log(`${emp.firstName}: On leave (approved) on ${dateStr}`);
+            }
+          } else if (attendance.status === "Absent") {
+            // Marked as absent explicitly
+            if (!approvedLeaveDates.has(dateStr)) {
+              absentWithoutLeave += 1;
+              console.log(`${emp.firstName}: Marked ABSENT on ${dateStr}`);
+            }
+          } else if (attendance.status === "Present" || attendance.status === "Late") {
+            // Calculate overtime for present/late days
+            const hours = hoursBetween(attendance.checkIn, attendance.checkOut);
+            const extraHours = Math.max(0, hours - 8);
+            overtimeHours += extraHours;
+            if (extraHours > 0) {
+              console.log(`${emp.firstName}: ${dateStr} - Worked ${hours.toFixed(1)}h, Overtime: ${extraHours.toFixed(1)}h`);
+            }
+          }
+        }
+        
+        currentDate.setDate(currentDate.getDate() + 1);
+      }
+      
+      console.log(`${emp.firstName} Total: Overtime=${overtimeHours.toFixed(1)}h, Absent=${absentWithoutLeave} days`);
+
+      // Calculate deductions
+      const dailyRate = workingDays > 0 ? base / workingDays : 0;
+      const hourlyRate = workingDays > 0 ? base / (workingDays * 8) : 0;
+      
+      // Unpaid leave deduction
+      const unpaidLeaveDeduction = Math.round(dailyRate * unpaidLeaveDays);
+      
+      // Absent without leave deduction (full day deduction)
+      const absentDeduction = Math.round(dailyRate * absentWithoutLeave);
+      
+      // Paid leave over allowance deduction
+      const totalLeaveDays = paidLeaveDays + unpaidLeaveDays;
+      const excessOverAllowance = Math.max(0, totalLeaveDays - allowance);
+      const excessDeduction = Math.round(dailyRate * excessOverAllowance);
+      
+      // Total chargeable leave = unpaid + absent without leave + excess over allowance
+      const chargeableLeave = unpaidLeaveDays + absentWithoutLeave + excessOverAllowance;
+      const totalLeaveDeduction = unpaidLeaveDeduction + absentDeduction + excessDeduction;
+      
+      // Overtime pay (1.5x hourly rate)
+      const overtimePay = Math.round(overtimeHours * hourlyRate * 1.5);
+      const bonus = overtimePay;
+      
+      // Tax deduction (applied on gross pay = base + bonus)
+      const grossPay = base + bonus;
+      const taxDeduction = Math.round((grossPay * taxRate) / 100);
+      
+      // Total deductions = leave deductions + tax
+      const totalDeductions = totalLeaveDeduction + taxDeduction;
+      
+      // Net pay calculation - ensure it never goes below zero
+      const grossTotal = base + bonus;
+      const net = Math.max(0, grossTotal - totalDeductions);
+      
+      // If deductions exceed gross pay, cap deductions at gross pay amount
+      const finalDeductions = totalDeductions > grossTotal ? grossTotal : totalDeductions;
+
+      await prisma.payrollRecord.create({
         data: {
           runId: run.id,
           employeeId: emp.id,
           department: emp.department,
           baseSalary: base,
           bonus,
-          deductions: otherDeductions + leaveDeduction,
+          deductions: finalDeductions,
           netPay: net,
           status: "Pending",
           payDate: null,
+          periodYear: year,
+          periodMonth: month,
+          overtimeHours,
+          unpaidLeaveDays: unpaidLeaveDays,
+          paidLeaveDays: paidLeaveDays,
+          absentDays: absentWithoutLeave, // Store absent days separately
+          chargeableLeave: chargeableLeave,
+          workingDays,
         },
       });
     }
 
-    await db.payrollRun.update({ where: { id: run.id }, data: { status: "processed", processedAt: new Date() } });
+    await prisma.payrollRun.update({ where: { id: run.id }, data: { status: "processed", processedAt: new Date() } });
 
     return NextResponse.json({ success: true, runId: run.id }, { status: 201 });
   } catch (err) {
@@ -177,7 +295,7 @@ export async function PATCH(req: Request) {
     const id = Number(searchParams.get("id"));
     if (!id) return NextResponse.json({ error: "Missing id" }, { status: 400 });
     const body = await req.json();
-    const record = await db.payrollRecord.findUnique({ where: { id } });
+    const record = await prisma.payrollRecord.findUnique({ where: { id } });
     if (!record) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
     const baseSalary = body.baseSalary ?? record.baseSalary;
@@ -185,7 +303,7 @@ export async function PATCH(req: Request) {
     const deductions = body.deductions ?? record.deductions ?? 0; // includes leave deduction for now
     const netPay = Math.max(0, baseSalary + bonus - deductions);
 
-    const updated = await db.payrollRecord.update({
+    const updated = await prisma.payrollRecord.update({
       where: { id },
       data: {
         baseSalary,
