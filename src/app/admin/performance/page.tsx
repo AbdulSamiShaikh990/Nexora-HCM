@@ -1,616 +1,814 @@
-"use client";
+'use client';
 
-import { useEffect, useMemo, useState } from "react";
+import { useState, useEffect } from 'react';
+import { useSession } from 'next-auth/react';
+import { useRouter } from 'next/navigation';
 import {
-  LineChart,
-  Line,
-  RadarChart,
-  Radar,
-  PolarGrid,
-  PolarAngleAxis,
-  PolarRadiusAxis,
+  Target,
+  ClipboardList,
+  Users,
+  Calendar,
+  Plus,
+  Star,
+  CheckCircle,
+  Clock,
+  X,
+  Edit,
+  Trash2,
+  Eye,
+  Play,
+  Lock,
+  TrendingUp,
+  BarChart3
+} from 'lucide-react';
+import {
+  PieChart,
+  Pie,
+  Cell,
+  BarChart,
+  Bar,
   XAxis,
   YAxis,
   CartesianGrid,
   Tooltip,
+  Legend,
   ResponsiveContainer,
-} from "recharts";
-import {
-  Star,
-  Target,
-  Users,
-  Award,
-  MessageSquare,
-  Plus,
-  X,
-  TrendingUp,
-  TrendingDown,
-  AlertTriangle,
-  Search,
-} from "lucide-react";
+  RadialBarChart,
+  RadialBar
+} from 'recharts';
 
-// API helpers (inline to avoid creating files)
-async function searchEmployeesAPI(query: string) {
-  const res = await fetch(`/api/performance?query=${encodeURIComponent(query)}`);
-  if (!res.ok) return { employees: [] };
-  return res.json();
+// Types
+interface ReviewCycle {
+  id: number;
+  name: string;
+  startDate: string;
+  endDate: string;
+  status: 'DRAFT' | 'OPEN' | 'CLOSED';
+  _count?: {
+    goals: number;
+    reviews: number;
+  };
 }
 
-async function getEmployeePerformanceAPI(employeeId: number) {
-  const res = await fetch(`/api/performance?employeeId=${employeeId}`);
-  if (!res.ok) return null;
-  return res.json();
+interface PerformanceGoal {
+  id: number;
+  employeeId: number;
+  cycleId: number;
+  title: string;
+  description: string | null;
+  progress: number;
+  status: string;
+  createdAt: string;
+  employee: {
+    id: number;
+    firstName: string;
+    lastName: string;
+    email: string;
+    jobTitle: string;
+    department: string;
+  };
+  cycle: {
+    id: number;
+    name: string;
+    status: string;
+  };
 }
 
-export default function PerformancePage() {
-  const [isOKRDialogOpen, setIsOKRDialogOpen] = useState(false);
-  const [isFeedbackDialogOpen, setIsFeedbackDialogOpen] = useState(false);
-  const [selectedEmployee, setSelectedEmployee] = useState("");
-  const [feedbackCategory, setFeedbackCategory] = useState("");
-  const [feedbackText, setFeedbackText] = useState("");
-  const [okrObjective, setOkrObjective] = useState("");
-  const [okrKeyResult, setOkrKeyResult] = useState("");
-  const [okrDueDate, setOkrDueDate] = useState("");
-  const [searchQuery, setSearchQuery] = useState("");
-  const [searchOpen, setSearchOpen] = useState(false);
-  const [employeeResults, setEmployeeResults] = useState<any[]>([]);
-  const [bundle, setBundle] = useState<any | null>(null);
-  const [loadingBundle, setLoadingBundle] = useState(false);
+export default function AdminPerformancePage() {
+  const { data: session, status } = useSession();
+  const router = useRouter();
 
-  // live search employees
+  const [activeTab, setActiveTab] = useState<'cycles' | 'goals'>('cycles');
+  const [cycles, setCycles] = useState<ReviewCycle[]>([]);
+  const [goals, setGoals] = useState<PerformanceGoal[]>([]);
+  const [selectedCycleId, setSelectedCycleId] = useState<number | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // Modals
+  const [showCreateCycleModal, setShowCreateCycleModal] = useState(false);
+
+  // Form states
+  const [cycleName, setCycleName] = useState('');
+  const [cycleStartDate, setCycleStartDate] = useState('');
+  const [cycleEndDate, setCycleEndDate] = useState('');
+
   useEffect(() => {
-    let active = true;
-    const q = searchQuery.trim();
-    if (!q) {
-      setEmployeeResults([]);
-      return;
+    if (status === 'unauthenticated') {
+      router.push('/auth/signin');
     }
-    searchEmployeesAPI(q).then((data) => {
-      if (!active) return;
-      setEmployeeResults(data.employees || []);
-    });
-    return () => {
-      active = false;
-    };
-  }, [searchQuery]);
+  }, [status, router]);
 
-  // fetch performance bundle when an employee is selected (numeric id)
+  // Fetch cycles
+  const fetchCycles = async () => {
+    try {
+      const res = await fetch('/api/performance/admin?type=cycles');
+      if (!res.ok) throw new Error('Failed to fetch cycles');
+      const data = await res.json();
+      setCycles(data);
+      
+      // Select first open cycle by default
+      const openCycle = data.find((c: ReviewCycle) => c.status === 'OPEN');
+      if (openCycle) setSelectedCycleId(openCycle.id);
+      else if (data.length > 0) setSelectedCycleId(data[0].id);
+    } catch (err) {
+      setError('Error loading cycles');
+    }
+  };
+
+  // Fetch goals for selected cycle
+  const fetchGoals = async (cycleId: number) => {
+    try {
+      const res = await fetch(`/api/performance/admin?type=goals&cycleId=${cycleId}`);
+      if (!res.ok) throw new Error('Failed to fetch goals');
+      const data = await res.json();
+      setGoals(data);
+    } catch (err) {
+      setError('Error loading goals');
+    }
+  };
+
   useEffect(() => {
-    const idNum = Number(selectedEmployee);
-    if (!idNum) {
-      setBundle(null);
-      return;
+    if (status === 'authenticated') {
+      fetchCycles().finally(() => setLoading(false));
     }
-    setLoadingBundle(true);
-    getEmployeePerformanceAPI(idNum)
-      .then((data) => setBundle(data))
-      .finally(() => setLoadingBundle(false));
-  }, [selectedEmployee]);
+  }, [status]);
 
-  const kpis = bundle?.kpis;
-  const trend = bundle?.trend || [];
-  const skills = bundle?.skills || [];
-  const okrsData = bundle?.okrs || [];
-  const alertsData = bundle?.alerts || [];
+  useEffect(() => {
+    if (selectedCycleId) {
+      fetchGoals(selectedCycleId);
+    }
+  }, [selectedCycleId]);
 
-  const getStatusBadge = (status: string) => {
-    const styles = {
-      Completed: "bg-green-100 text-green-800",
-      "On Track": "bg-blue-100 text-blue-800",
-      Behind: "bg-orange-100 text-orange-800",
+  // Create cycle
+  const handleCreateCycle = async () => {
+    if (!cycleName || !cycleStartDate || !cycleEndDate) return;
+    try {
+      const res = await fetch('/api/performance/admin?type=cycles', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: cycleName,
+          startDate: cycleStartDate,
+          endDate: cycleEndDate
+        })
+      });
+      if (!res.ok) throw new Error('Failed to create cycle');
+      await fetchCycles();
+      setShowCreateCycleModal(false);
+      setCycleName('');
+      setCycleStartDate('');
+      setCycleEndDate('');
+    } catch (err) {
+      setError('Error creating cycle');
+    }
+  };
+
+  // Update cycle status
+  const handleUpdateCycleStatus = async (cycleId: number, newStatus: 'OPEN' | 'CLOSED') => {
+    try {
+      const res = await fetch('/api/performance/admin?type=cycles', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: cycleId, status: newStatus })
+      });
+      if (!res.ok) throw new Error('Failed to update cycle');
+      await fetchCycles();
+    } catch (err) {
+      setError('Error updating cycle');
+    }
+  };
+
+  // Delete cycle
+  const handleDeleteCycle = async (cycleId: number) => {
+    if (!confirm('Delete this cycle? This will also delete all related goals and reviews.')) return;
+    try {
+      const res = await fetch(`/api/performance/admin?type=cycles&id=${cycleId}`, {
+        method: 'DELETE'
+      });
+      if (!res.ok) throw new Error('Failed to delete cycle');
+      await fetchCycles();
+      if (selectedCycleId === cycleId) {
+        setSelectedCycleId(cycles[0]?.id || null);
+      }
+    } catch (err) {
+      setError('Error deleting cycle');
+    }
+  };
+
+  // Stats
+  const stats = {
+    totalCycles: cycles.length,
+    activeCycles: cycles.filter(c => c.status === 'OPEN').length
+  };
+
+  // Calculate analytics data for charts
+  const getAnalyticsData = () => {
+    if (goals.length === 0) return null;
+
+    // Goal completion stats
+    const completedGoals = goals.filter(g => g.status === 'COMPLETED').length;
+    const inProgressGoals = goals.filter(g => g.status === 'IN_PROGRESS').length;
+    const notStartedGoals = goals.filter(g => g.status === 'NOT_STARTED').length;
+
+    // Progress distribution
+    const progressRanges = [
+      { name: '0-25%', count: goals.filter(g => g.progress >= 0 && g.progress < 25).length, fill: '#ef4444' },
+      { name: '25-50%', count: goals.filter(g => g.progress >= 25 && g.progress < 50).length, fill: '#f97316' },
+      { name: '50-75%', count: goals.filter(g => g.progress >= 50 && g.progress < 75).length, fill: '#3b82f6' },
+      { name: '75-99%', count: goals.filter(g => g.progress >= 75 && g.progress < 100).length, fill: '#8b5cf6' },
+      { name: '100%', count: goals.filter(g => g.progress === 100).length, fill: '#22c55e' }
+    ];
+
+    // Employee performance comparison
+    const employeePerformance = Object.entries(
+      goals.reduce((acc, goal) => {
+        const empKey = `${goal.employee.firstName} ${goal.employee.lastName}`;
+        if (!acc[empKey]) {
+          acc[empKey] = { name: empKey, goals: [], avgProgress: 0, completed: 0 };
+        }
+        acc[empKey].goals.push(goal);
+        return acc;
+      }, {} as Record<string, { name: string; goals: PerformanceGoal[]; avgProgress: number; completed: number }>)
+    ).map(([_, data]) => ({
+      name: data.name.length > 15 ? data.name.substring(0, 15) + '...' : data.name,
+      avgProgress: Math.round(data.goals.reduce((sum, g) => sum + g.progress, 0) / data.goals.length),
+      completed: data.goals.filter(g => g.status === 'COMPLETED').length,
+      total: data.goals.length
+    })).sort((a, b) => b.avgProgress - a.avgProgress).slice(0, 8);
+
+    // Department performance
+    const deptPerformance = Object.entries(
+      goals.reduce((acc, goal) => {
+        const dept = goal.employee.department;
+        if (!acc[dept]) {
+          acc[dept] = { goals: [], avgProgress: 0 };
+        }
+        acc[dept].goals.push(goal);
+        return acc;
+      }, {} as Record<string, { goals: PerformanceGoal[]; avgProgress: number }>)
+    ).map(([dept, data]) => ({
+      name: dept,
+      avgProgress: Math.round(data.goals.reduce((sum, g) => sum + g.progress, 0) / data.goals.length),
+      goals: data.goals.length
+    })).sort((a, b) => b.avgProgress - a.avgProgress);
+
+    // Overall completion rate (for donut chart)
+    const completionData = [
+      { name: 'Completed', value: completedGoals, fill: '#22c55e' },
+      { name: 'In Progress', value: inProgressGoals, fill: '#3b82f6' },
+      { name: 'Not Started', value: notStartedGoals, fill: '#94a3b8' }
+    ];
+
+    return {
+      completionData,
+      progressRanges: progressRanges.filter(r => r.count > 0),
+      employeePerformance,
+      deptPerformance,
+      totalGoals: goals.length,
+      avgProgress: Math.round(goals.reduce((sum, g) => sum + g.progress, 0) / goals.length)
     };
-    return styles[status as keyof typeof styles] || "bg-gray-100 text-gray-800";
   };
 
-  const getAlertIcon = (type: string) => {
-    switch (type) {
-      case "success":
-        return <TrendingUp className="w-5 h-5 text-green-600" />;
-      case "danger":
-        return <AlertTriangle className="w-5 h-5 text-red-600" />;
-      default:
-        return <TrendingDown className="w-5 h-5 text-orange-600" />;
-    }
-  };
+  const analyticsData = getAnalyticsData();
 
-  const getAlertStyle = (type: string) => {
-    switch (type) {
-      case "success":
-        return "bg-green-50 border-green-200";
-      case "danger":
-        return "bg-red-50 border-red-200";
-      default:
-        return "bg-orange-50 border-orange-200";
-    }
-  };
+  if (status === 'loading' || loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-50 via-purple-50 to-blue-50">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-purple-600"></div>
+      </div>
+    );
+  }
 
   return (
-    <div className="w-full min-h-screen bg-gray-50 p-4 sm:p-6 lg:p-8">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-purple-50 to-blue-50 p-6">
       {/* Header */}
-      <div className="mb-6 sm:mb-8">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div>
-            <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-gray-900">
-              Performance Tracking
-            </h1>
-            <p className="mt-1 text-sm sm:text-base text-gray-700">
-              Track goals, feedback, and professional development
-            </p>
-            {selectedEmployee && (
-              <p className="mt-2 text-xs sm:text-sm text-blue-700 font-medium">
-                Monitoring: Employee ID {selectedEmployee}
-              </p>
-            )}
+      <div className="mb-8">
+        <h1 className="text-3xl font-bold bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent">Performance Management</h1>
+        <p className="text-gray-600 mt-1">Manage review cycles and evaluate employee performance</p>
+      </div>
+
+      {/* Error Display */}
+      {error && (
+        <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-xl text-red-600 flex justify-between items-center">
+          <span>{error}</span>
+          <button onClick={() => setError(null)} className="text-red-600 hover:text-red-800 font-bold">✕</button>
+        </div>
+      )}
+
+      {/* Stats Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+        <div className="group relative overflow-hidden rounded-2xl bg-gradient-to-br from-purple-500/10 to-purple-600/5 border border-purple-200/40 backdrop-blur-xl p-6 hover:border-purple-300/60 shadow-[0_8px_32px_0_rgba(168,85,247,0.1)] hover:shadow-[0_8px_32px_0_rgba(168,85,247,0.2)] transition-all duration-300">
+          <div className="absolute inset-0 bg-gradient-to-br from-purple-500/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+          <div className="relative flex items-start justify-between">
+            <div className="flex-1">
+              <p className="text-xs text-gray-600 font-semibold uppercase tracking-wider mb-2">Total Cycles</p>
+              <p className="text-4xl font-bold bg-gradient-to-r from-purple-600 to-purple-700 bg-clip-text text-transparent">{stats.totalCycles}</p>
+            </div>
+            <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-purple-400 to-purple-600 flex items-center justify-center shadow-lg shadow-purple-500/30 group-hover:scale-110 transition-transform">
+              <Calendar className="w-7 h-7 text-white" />
+            </div>
           </div>
-          <div className="flex flex-col sm:flex-row gap-3 sm:items-center w-full sm:w-auto">
-            {/* Search box */}
-            <div className="relative w-full sm:w-72">
-              <div className="flex items-center gap-2 px-3 py-2 bg-white border border-gray-300 rounded-lg shadow-sm focus-within:ring-2 focus-within:ring-blue-500">
-                <Search className="w-4 h-4 text-gray-700" />
-                <input
-                  value={searchQuery}
-                  onChange={(e) => {
-                    setSearchQuery(e.target.value);
-                    setSearchOpen(true);
-                  }}
-                  onFocus={() => setSearchOpen(true)}
-                  placeholder="Search by name or ID..."
-                  className="w-full text-sm outline-none placeholder:text-gray-500 text-gray-900"
-                />
-                {selectedEmployee && (
-                  <button
-                    onClick={() => {
-                      setSelectedEmployee("");
-                      setSearchQuery("");
-                    }}
-                    className="text-gray-600 hover:text-gray-900"
-                    title="Clear selection"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
-                )}
+        </div>
+        <div className="group relative overflow-hidden rounded-2xl bg-gradient-to-br from-green-500/10 to-green-600/5 border border-green-200/40 backdrop-blur-xl p-6 hover:border-green-300/60 shadow-[0_8px_32px_0_rgba(34,197,94,0.1)] hover:shadow-[0_8px_32px_0_rgba(34,197,94,0.2)] transition-all duration-300">
+          <div className="absolute inset-0 bg-gradient-to-br from-green-500/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+          <div className="relative flex items-start justify-between">
+            <div className="flex-1">
+              <p className="text-xs text-gray-600 font-semibold uppercase tracking-wider mb-2">Active Cycles</p>
+              <p className="text-4xl font-bold bg-gradient-to-r from-green-600 to-green-700 bg-clip-text text-transparent">{stats.activeCycles}</p>
+            </div>
+            <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-green-400 to-green-600 flex items-center justify-center shadow-lg shadow-green-500/30 group-hover:scale-110 transition-transform">
+              <Play className="w-7 h-7 text-white" />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Tabs */}
+      <div className="flex gap-2 mb-6">
+        <button
+          onClick={() => setActiveTab('cycles')}
+          className={`px-6 py-2.5 rounded-xl font-semibold transition-all ${
+            activeTab === 'cycles'
+              ? 'bg-gradient-to-r from-purple-600 to-blue-600 text-white shadow-lg shadow-purple-600/40'
+              : 'bg-white/60 backdrop-blur-sm text-gray-700 hover:bg-white/80 border border-gray-200/60'
+          }`}
+        >
+          <Calendar className="w-4 h-4 inline mr-2" />
+          Review Cycles
+        </button>
+        <button
+          onClick={() => setActiveTab('goals')}
+          className={`px-6 py-2.5 rounded-xl font-semibold transition-all ${
+            activeTab === 'goals'
+              ? 'bg-gradient-to-r from-purple-600 to-blue-600 text-white shadow-lg shadow-purple-600/40'
+              : 'bg-white/60 backdrop-blur-sm text-gray-700 hover:bg-white/80 border border-gray-200/60'
+          }`}
+        >
+          <Target className="w-4 h-4 inline mr-2" />
+          Employee Goals
+        </button>
+      </div>
+
+      {/* Cycles Tab */}
+      {activeTab === 'cycles' && (
+        <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-white/40 to-white/20 border border-white/30 backdrop-blur-xl shadow-[0_8px_32px_0_rgba(31,38,135,0.37)]">
+          <div className="absolute inset-0 bg-gradient-to-br from-purple-500/5 to-blue-500/5 pointer-events-none" />
+          <div className="relative p-6">
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-xl font-bold text-gray-900">Review Cycles</h2>
+              <button
+                onClick={() => setShowCreateCycleModal(true)}
+                className="flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-gradient-to-r from-purple-600 to-blue-600 text-white font-semibold shadow-lg shadow-purple-600/40 hover:shadow-xl hover:scale-105 transition-all active:scale-95"
+              >
+                <Plus className="w-5 h-5" />
+                Create Cycle
+              </button>
+            </div>
+
+          {cycles.length === 0 ? (
+            <div className="text-center py-16">
+              <div className="w-16 h-16 mx-auto rounded-full bg-gradient-to-br from-purple-400/20 to-blue-400/20 flex items-center justify-center mb-4">
+                <Calendar className="w-8 h-8 text-gray-400" />
               </div>
-              {searchOpen && (
-                <div className="absolute z-10 mt-2 w-full bg-white border border-gray-300 rounded-lg shadow-lg max-h-64 overflow-auto">
-                  {employeeResults.length === 0 ? (
-                    <div className="px-3 py-2 text-sm text-gray-600">No results</div>
-                  ) : (
-                    employeeResults.map((e) => (
-                      <button
-                        key={e.id}
-                        onClick={() => {
-                          setSelectedEmployee(String(e.id));
-                          setSearchQuery(`${e.firstName} ${e.lastName} • ${e.id}`);
-                          setSearchOpen(false);
-                        }}
-                        className="w-full text-left px-3 py-2 hover:bg-gray-100 text-sm"
+              <p className="text-sm font-semibold text-gray-700">No review cycles yet</p>
+              <p className="text-xs text-gray-500 mt-1">Create a cycle to start evaluating performance</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {cycles.map((cycle) => (
+                <div
+                  key={cycle.id}
+                  className="group relative overflow-hidden rounded-xl bg-white/60 backdrop-blur-sm border border-gray-200/60 p-4 hover:bg-white/80 hover:border-purple-300/60 transition-all duration-300 hover:shadow-lg"
+                >
+                  <div className="flex justify-between items-start">
+                    <div className="flex-1">
+                      <h3 className="text-lg font-bold text-gray-900 group-hover:text-purple-600 transition-colors">{cycle.name}</h3>
+                      <p className="text-sm text-gray-600 mt-1">
+                        {new Date(cycle.startDate).toLocaleDateString()} - {new Date(cycle.endDate).toLocaleDateString()}
+                      </p>
+                      <div className="flex gap-4 mt-2 text-sm text-gray-600">
+                        <span className="flex items-center gap-1">
+                          <Target className="w-4 h-4" />
+                          {cycle._count?.goals || 0} goals
+                        </span>
+                        <span className="flex items-center gap-1">
+                          <ClipboardList className="w-4 h-4" />
+                          {cycle._count?.reviews || 0} reviews
+                        </span>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span
+                        className={`px-3 py-1.5 rounded-lg text-xs font-bold ${
+                          cycle.status === 'OPEN'
+                            ? 'bg-green-100 text-green-800'
+                            : cycle.status === 'CLOSED'
+                            ? 'bg-gray-100 text-gray-800'
+                            : 'bg-yellow-100 text-yellow-800'
+                        }`}
                       >
-                        <span className="font-medium text-gray-900">{e.firstName} {e.lastName}</span>
-                        <span className="ml-2 text-xs text-gray-600">{e.id}</span>
-                        <span className="ml-2 text-xs text-gray-600">• {e.department}</span>
+                        {cycle.status}
+                      </span>
+                      {cycle.status === 'DRAFT' && (
+                        <button
+                          onClick={() => handleUpdateCycleStatus(cycle.id, 'OPEN')}
+                          className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors"
+                          title="Open Cycle"
+                        >
+                          <Play className="w-4 h-4" />
+                        </button>
+                      )}
+                      {cycle.status === 'OPEN' && (
+                        <button
+                          onClick={() => handleUpdateCycleStatus(cycle.id, 'CLOSED')}
+                          className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                          title="Close Cycle"
+                        >
+                          <Lock className="w-4 h-4" />
+                        </button>
+                      )}
+                      <button
+                        onClick={() => handleDeleteCycle(cycle.id)}
+                        className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                        title="Delete Cycle"
+                      >
+                        <Trash2 className="w-4 h-4" />
                       </button>
-                    ))
-                  )}
+                    </div>
+                  </div>
                 </div>
-              )}
+              ))}
             </div>
-
-            <div className="flex flex-wrap gap-2 sm:gap-3">
-            <button
-              onClick={() => setIsFeedbackDialogOpen(true)}
-              className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-100 transition-colors text-sm sm:text-base text-gray-900"
-            >
-              <MessageSquare className="w-4 h-4 sm:w-5 sm:h-5 text-gray-700" />
-              <span className="hidden sm:inline">360° Feedback</span>
-              <span className="sm:hidden">Feedback</span>
-            </button>
-            <button
-              onClick={() => setIsOKRDialogOpen(true)}
-              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm sm:text-base"
-            >
-              <Plus className="w-4 h-4 sm:w-5 sm:h-5" />
-              Add OKR
-            </button>
-            </div>
-          </div>
+          )}
         </div>
       </div>
+      )}
 
-      {/* KPI Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 mb-6 sm:mb-8">
-        {/* Overall Score */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-300 p-4 sm:p-6 hover:shadow-md transition-shadow">
-          <div className="flex items-center justify-between mb-3">
-            <div className="p-2 bg-yellow-100 rounded-lg">
-              <Star className="w-5 h-5 sm:w-6 sm:h-6 text-yellow-600" />
+      {/* Employee Goals Tab */}
+      {activeTab === 'goals' && (
+        <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-white/40 to-white/20 border border-white/30 backdrop-blur-xl shadow-[0_8px_32px_0_rgba(31,38,135,0.37)]">
+          <div className="absolute inset-0 bg-gradient-to-br from-purple-500/5 to-blue-500/5 pointer-events-none" />
+          <div className="relative p-6">
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-xl font-bold text-gray-900">Employee Goals</h2>
+              <select
+                value={selectedCycleId || ''}
+                onChange={(e) => setSelectedCycleId(Number(e.target.value))}
+                className="px-4 py-2.5 rounded-lg bg-white/60 backdrop-blur-sm border border-gray-200/60 focus:ring-2 focus:ring-purple-500 focus:border-transparent text-gray-900 text-sm font-medium hover:bg-white/80 transition-all"
+              >
+                {cycles.map((cycle) => (
+                  <option key={cycle.id} value={cycle.id}>
+                    {cycle.name}
+                  </option>
+                ))}
+              </select>
             </div>
-          </div>
-          <h3 className="text-sm text-gray-700 mb-1">Overall Score</h3>
-          <p className="text-2xl sm:text-3xl font-bold text-gray-900">{kpis?.score ?? 0}/100</p>
-          <p className={`text-xs sm:text-sm mt-2 flex items-center gap-1 ${
-            (kpis?.delta ?? 0) >= 0 ? "text-green-700" : "text-red-700"
-          }`}>
-            {(kpis?.delta ?? 0) >= 0 ? (
-              <TrendingUp className="w-3 h-3 sm:w-4 sm:h-4" />
+
+            {goals.length === 0 ? (
+              <div className="text-center py-16">
+                <div className="w-16 h-16 mx-auto rounded-full bg-gradient-to-br from-purple-400/20 to-blue-400/20 flex items-center justify-center mb-4">
+                  <Target className="w-8 h-8 text-gray-400" />
+                </div>
+                <p className="text-sm font-semibold text-gray-700">No goals for this cycle</p>
+                <p className="text-xs text-gray-500 mt-1">Employees haven't added any goals yet</p>
+              </div>
             ) : (
-              <TrendingDown className="w-3 h-3 sm:w-4 sm:h-4" />
+              <>
+                {/* Analytics Dashboard */}
+                {analyticsData && (
+                  <div className="mb-6 space-y-4">
+                    {/* Overview Stats */}
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                      <div className="bg-gradient-to-br from-blue-50 to-blue-100/50 border border-blue-200 rounded-xl p-4">
+                        <div className="flex items-center gap-3">
+                          <div className="w-12 h-12 rounded-lg bg-blue-500 flex items-center justify-center">
+                            <Target className="w-6 h-6 text-white" />
+                          </div>
+                          <div>
+                            <p className="text-xs text-blue-600 font-semibold">Total Goals</p>
+                            <p className="text-2xl font-bold text-blue-900">{analyticsData.totalGoals}</p>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="bg-gradient-to-br from-green-50 to-green-100/50 border border-green-200 rounded-xl p-4">
+                        <div className="flex items-center gap-3">
+                          <div className="w-12 h-12 rounded-lg bg-green-500 flex items-center justify-center">
+                            <CheckCircle className="w-6 h-6 text-white" />
+                          </div>
+                          <div>
+                            <p className="text-xs text-green-600 font-semibold">Completed</p>
+                            <p className="text-2xl font-bold text-green-900">{analyticsData.completionData[0].value}</p>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="bg-gradient-to-br from-purple-50 to-purple-100/50 border border-purple-200 rounded-xl p-4">
+                        <div className="flex items-center gap-3">
+                          <div className="w-12 h-12 rounded-lg bg-purple-500 flex items-center justify-center">
+                            <TrendingUp className="w-6 h-6 text-white" />
+                          </div>
+                          <div>
+                            <p className="text-xs text-purple-600 font-semibold">Avg Progress</p>
+                            <p className="text-2xl font-bold text-purple-900">{analyticsData.avgProgress}%</p>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="bg-gradient-to-br from-orange-50 to-orange-100/50 border border-orange-200 rounded-xl p-4">
+                        <div className="flex items-center gap-3">
+                          <div className="w-12 h-12 rounded-lg bg-orange-500 flex items-center justify-center">
+                            <Users className="w-6 h-6 text-white" />
+                          </div>
+                          <div>
+                            <p className="text-xs text-orange-600 font-semibold">Employees</p>
+                            <p className="text-2xl font-bold text-orange-900">{analyticsData.employeePerformance.length}</p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Charts Grid */}
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                      {/* Goal Completion Donut Chart */}
+                      <div className="bg-white/60 backdrop-blur-sm border border-gray-200/60 rounded-xl p-5">
+                        <div className="flex items-center gap-2 mb-4">
+                          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-green-400 to-green-600 flex items-center justify-center">
+                            <CheckCircle className="w-5 h-5 text-white" />
+                          </div>
+                          <h3 className="text-lg font-bold text-gray-900">Goal Status Distribution</h3>
+                        </div>
+                        <ResponsiveContainer width="100%" height={280}>
+                          <PieChart>
+                            <Pie
+                              data={analyticsData.completionData}
+                              cx="50%"
+                              cy="50%"
+                              innerRadius={60}
+                              outerRadius={100}
+                              paddingAngle={5}
+                              dataKey="value"
+                              label={(entry: any) => `${entry.name}: ${entry.value}`}
+                            >
+                              {analyticsData.completionData.map((entry, index) => (
+                                <Cell key={`cell-${index}`} fill={entry.fill} />
+                              ))}
+                            </Pie>
+                            <Tooltip />
+                          </PieChart>
+                        </ResponsiveContainer>
+                      </div>
+
+                      {/* Progress Distribution Bar Chart */}
+                      <div className="bg-white/60 backdrop-blur-sm border border-gray-200/60 rounded-xl p-5">
+                        <div className="flex items-center gap-2 mb-4">
+                          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center">
+                            <BarChart3 className="w-5 h-5 text-white" />
+                          </div>
+                          <h3 className="text-lg font-bold text-gray-900">Progress Distribution</h3>
+                        </div>
+                        <ResponsiveContainer width="100%" height={280}>
+                          <BarChart data={analyticsData.progressRanges}>
+                            <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                            <XAxis dataKey="name" stroke="#6b7280" style={{ fontSize: '12px' }} />
+                            <YAxis stroke="#6b7280" style={{ fontSize: '12px' }} />
+                            <Tooltip 
+                              contentStyle={{ 
+                                backgroundColor: 'white', 
+                                border: '1px solid #e5e7eb', 
+                                borderRadius: '8px',
+                                fontSize: '12px'
+                              }} 
+                            />
+                            <Bar dataKey="count" radius={[8, 8, 0, 0]}>
+                              {analyticsData.progressRanges.map((entry, index) => (
+                                <Cell key={`cell-${index}`} fill={entry.fill} />
+                              ))}
+                            </Bar>
+                          </BarChart>
+                        </ResponsiveContainer>
+                      </div>
+
+                      {/* Employee Performance Comparison */}
+                      <div className="bg-white/60 backdrop-blur-sm border border-gray-200/60 rounded-xl p-5 lg:col-span-2">
+                        <div className="flex items-center gap-2 mb-4">
+                          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-purple-400 to-purple-600 flex items-center justify-center">
+                            <TrendingUp className="w-5 h-5 text-white" />
+                          </div>
+                          <h3 className="text-lg font-bold text-gray-900">Top Employee Performance</h3>
+                        </div>
+                        <ResponsiveContainer width="100%" height={300}>
+                          <BarChart data={analyticsData.employeePerformance} layout="horizontal">
+                            <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                            <XAxis type="number" domain={[0, 100]} stroke="#6b7280" style={{ fontSize: '12px' }} />
+                            <YAxis type="category" dataKey="name" stroke="#6b7280" style={{ fontSize: '11px' }} width={120} />
+                            <Tooltip 
+                              contentStyle={{ 
+                                backgroundColor: 'white', 
+                                border: '1px solid #e5e7eb', 
+                                borderRadius: '8px',
+                                fontSize: '12px'
+                              }}
+                              formatter={(value, name) => {
+                                if (name === 'avgProgress') return [`${value}%`, 'Avg Progress'];
+                                return [value, name];
+                              }}
+                            />
+                            <Legend />
+                            <Bar dataKey="avgProgress" fill="#8b5cf6" name="Avg Progress %" radius={[0, 8, 8, 0]} />
+                          </BarChart>
+                        </ResponsiveContainer>
+                      </div>
+
+                      {/* Department Performance */}
+                      {analyticsData.deptPerformance.length > 1 && (
+                        <div className="bg-white/60 backdrop-blur-sm border border-gray-200/60 rounded-xl p-5 lg:col-span-2">
+                          <div className="flex items-center gap-2 mb-4">
+                            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-orange-400 to-orange-600 flex items-center justify-center">
+                              <Users className="w-5 h-5 text-white" />
+                            </div>
+                            <h3 className="text-lg font-bold text-gray-900">Department Performance</h3>
+                          </div>
+                          <ResponsiveContainer width="100%" height={280}>
+                            <BarChart data={analyticsData.deptPerformance}>
+                              <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                              <XAxis dataKey="name" stroke="#6b7280" style={{ fontSize: '12px' }} />
+                              <YAxis stroke="#6b7280" style={{ fontSize: '12px' }} domain={[0, 100]} />
+                              <Tooltip 
+                                contentStyle={{ 
+                                  backgroundColor: 'white', 
+                                  border: '1px solid #e5e7eb', 
+                                  borderRadius: '8px',
+                                  fontSize: '12px'
+                                }}
+                                formatter={(value, name) => {
+                                  if (name === 'avgProgress') return [`${value}%`, 'Avg Progress'];
+                                  if (name === 'goals') return [value, 'Total Goals'];
+                                  return [value, name];
+                                }}
+                              />
+                              <Legend />
+                              <Bar dataKey="avgProgress" fill="#3b82f6" name="Avg Progress %" radius={[8, 8, 0, 0]} />
+                              <Bar dataKey="goals" fill="#8b5cf6" name="Total Goals" radius={[8, 8, 0, 0]} />
+                            </BarChart>
+                          </ResponsiveContainer>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Divider */}
+                    <div className="border-t border-gray-200 my-6"></div>
+                  </div>
+                )}
+
+                {/* Employee Goals List */}
+                <div className="space-y-4">
+                {/* Group goals by employee */}
+                {Object.entries(
+                  goals.reduce((acc, goal) => {
+                    const empKey = goal.employeeId;
+                    if (!acc[empKey]) acc[empKey] = [];
+                    acc[empKey].push(goal);
+                    return acc;
+                  }, {} as Record<number, PerformanceGoal[]>)
+                ).map(([employeeId, employeeGoals]) => {
+                  const employee = employeeGoals[0].employee;
+                  const totalProgress = Math.round(
+                    employeeGoals.reduce((sum, g) => sum + g.progress, 0) / employeeGoals.length
+                  );
+                  const completedCount = employeeGoals.filter(g => g.status === 'COMPLETED').length;
+
+                  return (
+                    <div key={employeeId} className="group relative overflow-hidden rounded-xl bg-white/60 backdrop-blur-sm border border-gray-200/60 p-5 hover:bg-white/80 hover:border-purple-300/60 transition-all duration-300 hover:shadow-lg">
+                      {/* Employee Header */}
+                      <div className="flex justify-between items-start mb-4 pb-3 border-b border-gray-200">
+                        <div className="flex-1">
+                          <h3 className="text-lg font-bold text-gray-900 group-hover:text-purple-600 transition-colors">
+                            {employee.firstName} {employee.lastName}
+                          </h3>
+                          <p className="text-sm text-gray-600">
+                            {employee.jobTitle} • {employee.department}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-4">
+                          <div className="text-right">
+                            <p className="text-xs text-gray-500">Avg Progress</p>
+                            <p className="text-2xl font-bold text-purple-600">{totalProgress}%</p>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-xs text-gray-500">Completed</p>
+                            <p className="text-2xl font-bold text-green-600">
+                              {completedCount}/{employeeGoals.length}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Goals List */}
+                      <div className="space-y-3">
+                        {employeeGoals.map((goal) => (
+                          <div key={goal.id} className="flex items-center gap-3 p-3 bg-gray-50/50 rounded-lg">
+                            <div className="flex-1">
+                              <p className="font-semibold text-gray-900">{goal.title}</p>
+                              {goal.description && (
+                                <p className="text-xs text-gray-600 mt-1">{goal.description}</p>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-3">
+                              <div className="w-32">
+                                <div className="flex justify-between text-xs text-gray-600 mb-1">
+                                  <span>Progress</span>
+                                  <span className="font-semibold">{goal.progress}%</span>
+                                </div>
+                                <div className="w-full bg-gray-200 rounded-full h-2">
+                                  <div
+                                    className={`h-2 rounded-full transition-all ${
+                                      goal.progress === 100
+                                        ? 'bg-gradient-to-r from-green-400 to-green-600'
+                                        : goal.progress >= 50
+                                        ? 'bg-gradient-to-r from-blue-400 to-blue-600'
+                                        : goal.progress > 0
+                                        ? 'bg-gradient-to-r from-orange-400 to-orange-600'
+                                        : 'bg-gray-300'
+                                    }`}
+                                    style={{ width: `${goal.progress}%` }}
+                                  />
+                                </div>
+                              </div>
+                              <span
+                                className={`px-3 py-1 rounded-lg text-xs font-bold ${
+                                  goal.status === 'COMPLETED'
+                                    ? 'bg-green-100 text-green-800'
+                                    : goal.status === 'IN_PROGRESS'
+                                    ? 'bg-blue-100 text-blue-800'
+                                    : 'bg-gray-100 text-gray-800'
+                                }`}
+                              >
+                                {goal.status.replace('_', ' ')}
+                              </span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })}
+                </div>
+              </>
             )}
-            {(kpis?.delta ?? 0) >= 0 ? "+" : ""}
-            {kpis?.delta ?? 0} from last month
-          </p>
-        </div>
-
-        {/* Active OKRs */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 sm:p-6 hover:shadow-md transition-shadow">
-          <div className="flex items-center justify-between mb-3">
-            <div className="p-2 bg-blue-100 rounded-lg">
-              <Target className="w-5 h-5 sm:w-6 sm:h-6 text-blue-600" />
-            </div>
-          </div>
-          <h3 className="text-sm text-gray-700 mb-1">Active OKRs</h3>
-          <p className="text-2xl sm:text-3xl font-bold text-gray-900">{kpis?.okrs ?? 0}</p>
-          <p className="text-xs sm:text-sm text-gray-700 mt-2">{kpis?.okrText ?? "No OKRs"}</p>
-        </div>
-
-        {/* Feedback Received */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 sm:p-6 hover:shadow-md transition-shadow">
-          <div className="flex items-center justify-between mb-3">
-            <div className="p-2 bg-green-100 rounded-lg">
-              <Users className="w-5 h-5 sm:w-6 sm:h-6 text-green-600" />
-            </div>
-          </div>
-          <h3 className="text-sm text-gray-700 mb-1">Feedback Received</h3>
-          <p className="text-2xl sm:text-3xl font-bold text-gray-900">{kpis?.feedback ?? 0}</p>
-          <p className="text-xs sm:text-sm text-gray-700 mt-2">This quarter</p>
-        </div>
-
-        {/* Promotion Readiness */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 sm:p-6 hover:shadow-md transition-shadow">
-          <div className="flex items-center justify-between mb-3">
-            <div className="p-2 bg-purple-100 rounded-lg">
-              <Award className="w-5 h-5 sm:w-6 sm:h-6 text-purple-600" />
-            </div>
-          </div>
-          <h3 className="text-sm text-gray-700 mb-1">Promotion Readiness</h3>
-          <p className="text-2xl sm:text-3xl font-bold text-gray-900">{kpis?.readiness ?? 0}%</p>
-          <p className="text-xs sm:text-sm text-purple-700 mt-2">
-            Ready for review
-          </p>
-        </div>
-      </div>
-
-      {/* Charts Section */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 mb-6 sm:mb-8">
-        {/* Performance Trend */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-300 p-4 sm:p-6">
-          <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-            <TrendingUp className="w-5 h-5" />
-            Performance Trend
-          </h3>
-          <ResponsiveContainer width="100%" height={300}>
-            <LineChart data={trend}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-              <XAxis
-                dataKey="month"
-                tick={{ fontSize: 12 }}
-                stroke="#6b7280"
-              />
-              <YAxis
-                domain={[0, 100]}
-                tick={{ fontSize: 12 }}
-                stroke="#4b5563"
-              />
-              <Tooltip
-                contentStyle={{
-                  backgroundColor: "#fff",
-                  border: "1px solid #e5e7eb",
-                  borderRadius: "8px",
-                }}
-              />
-              <Line
-                type="monotone"
-                dataKey="score"
-                stroke="#2563eb"
-                strokeWidth={2}
-                dot={{ fill: "#2563eb", r: 4 }}
-                activeDot={{ r: 6 }}
-              />
-            </LineChart>
-          </ResponsiveContainer>
-        </div>
-
-        {/* Skills Assessment */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 sm:p-6">
-          <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-4">
-            Skills Assessment
-          </h3>
-          <ResponsiveContainer width="100%" height={300}>
-            <RadarChart data={skills}>
-              <PolarGrid stroke="#e5e7eb" />
-              <PolarAngleAxis
-                dataKey="skill"
-                tick={{ fontSize: 11 }}
-                stroke="#6b7280"
-              />
-              <PolarRadiusAxis
-                angle={90}
-                domain={[0, 100]}
-                tick={{ fontSize: 10 }}
-                stroke="#6b7280"
-              />
-              <Radar
-                name="Score"
-                dataKey="score"
-                stroke="#2563eb"
-                fill="#2563eb"
-                fillOpacity={0.6}
-              />
-              <Tooltip
-                contentStyle={{
-                  backgroundColor: "#fff",
-                  border: "1px solid #e5e7eb",
-                  borderRadius: "8px",
-                }}
-              />
-            </RadarChart>
-          </ResponsiveContainer>
-        </div>
-      </div>
-
-      {/* Top & Low Performers Section - hidden until backend provides data */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 mb-6 sm:mb-8"></div>
-
-      {/* Alerts & Notifications */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 sm:p-6 mb-6 sm:mb-8">
-        <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-          <AlertTriangle className="w-5 h-5" />
-          Alerts & Notifications
-        </h3>
-        <div className="space-y-3">
-          {alertsData.length === 0 && (
-            <div className="text-sm text-gray-600">No alerts yet.</div>
-          )}
-          {alertsData.map((alert: any, idx: number) => (
-            <div
-              key={idx}
-              className={`flex items-start gap-3 p-4 rounded-lg border ${getAlertStyle(
-                alert.type
-              )}`}
-            >
-              <div className="flex-shrink-0 mt-0.5">
-                {getAlertIcon(alert.type)}
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm sm:text-base text-gray-900">
-                  {alert.message}
-                </p>
-                <p className="text-xs text-gray-600 mt-1">{alert.date}</p>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* OKRs Section */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 sm:p-6">
-        <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-4">
-          Objectives & Key Results (OKRs)
-        </h3>
-        <div className="space-y-4">
-          {okrsData.length === 0 && (
-            <div className="text-sm text-gray-600">No OKRs yet.</div>
-          )}
-          {okrsData.map((okr: any) => (
-            <div
-              key={okr.id}
-              className="p-4 border border-gray-200 rounded-lg hover:border-gray-300 transition-colors"
-            >
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-3">
-                <h4 className="font-medium text-gray-900 text-sm sm:text-base">
-                  {okr.title}
-                </h4>
-                <span
-                  className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium w-fit ${getStatusBadge(
-                    okr.status
-                  )}`}
-                >
-                  {okr.status}
-                </span>
-              </div>
-              <div className="space-y-2">
-                <div className="flex items-center justify-between text-xs sm:text-sm">
-                  <span className="text-gray-600">Progress</span>
-                  <span className="font-medium text-gray-900">
-                    {okr.progress}%
-                  </span>
-                </div>
-                <div className="w-full bg-gray-200 rounded-full h-2">
-                  <div
-                    className="bg-blue-600 h-2 rounded-full transition-all"
-                    style={{ width: `${okr.progress}%` }}
-                  />
-                </div>
-                <p className="text-xs text-gray-600">
-                  Due: {okr.dueDate ? new Date(okr.dueDate).toLocaleDateString() : "-"}
-                </p>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* 360° Feedback Dialog */}
-      {isFeedbackDialogOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-xl shadow-xl max-w-md w-full max-h-[90vh] overflow-y-auto">
-            <div className="p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-xl font-semibold text-gray-900">
-                  360° Feedback
-                </h2>
-                <button
-                  onClick={() => setIsFeedbackDialogOpen(false)}
-                  className="text-gray-400 hover:text-gray-600"
-                >
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-              <p className="text-sm text-gray-600 mb-6">
-                Provide comprehensive feedback for an employee.
-              </p>
-
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Select Employee
-                  </label>
-                  <select
-                    value={selectedEmployee}
-                    onChange={(e) => setSelectedEmployee(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  >
-                    <option value="">Choose an employee...</option>
-                    <option value="sarah">Sarah Johnson</option>
-                    <option value="michael">Michael Chen</option>
-                    <option value="emily">Emily Davis</option>
-                    <option value="john">John Smith</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Feedback Category
-                  </label>
-                  <select
-                    value={feedbackCategory}
-                    onChange={(e) => setFeedbackCategory(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  >
-                    <option value="">Select category...</option>
-                    <option value="technical">Technical</option>
-                    <option value="communication">Communication</option>
-                    <option value="leadership">Leadership</option>
-                    <option value="teamwork">Teamwork</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Feedback
-                  </label>
-                  <textarea
-                    value={feedbackText}
-                    onChange={(e) => setFeedbackText(e.target.value)}
-                    rows={4}
-                    placeholder="Enter your feedback here..."
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
-                  />
-                </div>
-              </div>
-
-              <div className="flex gap-3 mt-6">
-                <button
-                  onClick={() => setIsFeedbackDialogOpen(false)}
-                  className="flex-1 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={() => {
-                    // Submit will be handled via Postman per your flow
-                    setIsFeedbackDialogOpen(false);
-                    setSelectedEmployee("");
-                    setFeedbackCategory("");
-                    setFeedbackText("");
-                  }}
-                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                >
-                  Submit Feedback
-                </button>
-              </div>
-            </div>
           </div>
         </div>
       )}
 
-      {/* Add OKR Dialog */}
-      {isOKRDialogOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-xl shadow-xl max-w-md w-full max-h-[90vh] overflow-y-auto">
-            <div className="p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-xl font-semibold text-gray-900">
-                  Add New OKR
-                </h2>
-                <button
-                  onClick={() => setIsOKRDialogOpen(false)}
-                  className="text-gray-400 hover:text-gray-600"
-                >
-                  <X className="w-5 h-5" />
-                </button>
+      {/* Create Cycle Modal */}
+      {showCreateCycleModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50">
+          <div className="bg-white rounded-2xl p-6 w-full max-w-md border border-gray-200 shadow-2xl">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-xl font-bold text-gray-900">Create Review Cycle</h3>
+              <button onClick={() => setShowCreateCycleModal(false)} className="text-gray-400 hover:text-gray-600 transition-colors">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-1">Cycle Name</label>
+                <input
+                  type="text"
+                  value={cycleName}
+                  onChange={(e) => setCycleName(e.target.value)}
+                  placeholder="Q4 2024 Review"
+                  className="w-full px-4 py-2.5 rounded-lg bg-gray-50 border border-gray-200 focus:ring-2 focus:ring-purple-500 focus:border-transparent text-gray-900 placeholder-gray-400 transition-all"
+                />
               </div>
-              <p className="text-sm text-gray-600 mb-6">
-                Set a new objective and key result for tracking.
-              </p>
-
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Objective
-                  </label>
-                  <input
-                    type="text"
-                    value={okrObjective}
-                    onChange={(e) => setOkrObjective(e.target.value)}
-                    placeholder="Enter your objective..."
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Key Result
-                  </label>
-                  <textarea
-                    value={okrKeyResult}
-                    onChange={(e) => setOkrKeyResult(e.target.value)}
-                    rows={3}
-                    placeholder="Define measurable key results..."
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Due Date
-                  </label>
-                  <input
-                    type="date"
-                    value={okrDueDate}
-                    onChange={(e) => setOkrDueDate(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  />
-                </div>
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-1">Start Date</label>
+                <input
+                  type="date"
+                  value={cycleStartDate}
+                  onChange={(e) => setCycleStartDate(e.target.value)}
+                  className="w-full px-4 py-2.5 rounded-lg bg-gray-50 border border-gray-200 focus:ring-2 focus:ring-purple-500 focus:border-transparent text-gray-900 transition-all"
+                />
               </div>
-
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-1">End Date</label>
+                <input
+                  type="date"
+                  value={cycleEndDate}
+                  onChange={(e) => setCycleEndDate(e.target.value)}
+                  className="w-full px-4 py-2.5 rounded-lg bg-gray-50 border border-gray-200 focus:ring-2 focus:ring-purple-500 focus:border-transparent text-gray-900 transition-all"
+                />
+              </div>
               <div className="flex gap-3 mt-6">
                 <button
-                  onClick={() => setIsOKRDialogOpen(false)}
-                  className="flex-1 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                  onClick={() => setShowCreateCycleModal(false)}
+                  className="flex-1 px-4 py-2.5 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 font-medium transition-colors"
                 >
                   Cancel
                 </button>
                 <button
-                  onClick={() => {
-                    // Submit will be handled via Postman per your flow
-                    setIsOKRDialogOpen(false);
-                    setOkrObjective("");
-                    setOkrKeyResult("");
-                    setOkrDueDate("");
-                  }}
-                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                  onClick={handleCreateCycle}
+                  className="flex-1 px-4 py-2.5 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-lg hover:shadow-lg font-semibold transition-all"
                 >
-                  Add OKR
+                  Create
                 </button>
               </div>
             </div>
@@ -620,4 +818,3 @@ export default function PerformancePage() {
     </div>
   );
 }
-

@@ -35,6 +35,8 @@ model Employee {
   payrolls              Payroll[]
   payrollRecords        PayrollRecord[]
   performances          Performance[]
+  performanceGoals      PerformanceGoal[]
+  performanceReviews    PerformanceReview[]
   remoteWork            RemoteWorkRequest[]
   tasksAssignedByMe     Task[]                @relation("TaskAssignedBy")
   tasksAssignedToMe     Task[]                @relation("TaskAssignedTo")
@@ -149,7 +151,65 @@ model User {
   role     Role    @default(EMPLOYEE)
 }
 
-// Single Performance Management Model
+// Performance Management Models
+
+// Review Cycle (Q1, Q2, Annual etc)
+model ReviewCycle {
+  id        Int      @id @default(autoincrement())
+  name      String   // e.g., "Q1 2026", "Annual 2025"
+  startDate DateTime
+  endDate   DateTime
+  status    String   @default("DRAFT") // DRAFT | OPEN | CLOSED
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  goals   PerformanceGoal[]
+  reviews PerformanceReview[]
+
+  @@index([status])
+}
+
+// Employee Goals
+model PerformanceGoal {
+  id          Int      @id @default(autoincrement())
+  employeeId  Int
+  cycleId     Int
+  title       String
+  description String?
+  progress    Int      @default(0) // 0-100
+  status      String   @default("NOT_STARTED") // NOT_STARTED | IN_PROGRESS | COMPLETED
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  employee Employee    @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  cycle    ReviewCycle @relation(fields: [cycleId], references: [id], onDelete: Cascade)
+
+  @@index([employeeId])
+  @@index([cycleId])
+}
+
+// Performance Review (Self + Manager)
+model PerformanceReview {
+  id             Int      @id @default(autoincrement())
+  employeeId     Int
+  cycleId        Int
+  selfRating     Int?     // 1-5
+  selfComment    String?
+  managerRating  Int?     // 1-5
+  managerComment String?
+  status         String   @default("DRAFT") // DRAFT | SELF_SUBMITTED | MANAGER_REVIEWED | FINALIZED
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  employee Employee    @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  cycle    ReviewCycle @relation(fields: [cycleId], references: [id], onDelete: Cascade)
+
+  @@unique([employeeId, cycleId])
+  @@index([employeeId])
+  @@index([cycleId])
+}
+
+// Legacy Performance (kept for compatibility)
 model Performance {
   id          Int      @id @default(autoincrement())
   employeeId  Int
