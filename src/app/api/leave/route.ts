@@ -1,5 +1,24 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { Prisma } from "@prisma/client";
+
+// Types for leave query
+interface LeaveWhereInput {
+  AND?: Prisma.LeaveWhereInput[];
+  startDate?: { lte?: Date; gte?: Date };
+  endDate?: { lte?: Date; gte?: Date };
+  status?: string;
+  type?: string;
+  employeeId?: number;
+  employee?: {
+    department?: string;
+    OR?: Array<{
+      firstName?: { contains: string; mode: Prisma.QueryMode };
+      lastName?: { contains: string; mode: Prisma.QueryMode };
+      email?: { contains: string; mode: Prisma.QueryMode };
+    }>;
+  };
+}
 
 // Placeholder API for Leave management. Replace with Prisma logic later.
 export async function GET(req: Request) {
@@ -12,10 +31,11 @@ export async function GET(req: Request) {
     const q = searchParams.get("q");
     const department = searchParams.get("department");
     const month = searchParams.get("month"); // YYYY-MM
+    const employeeId = searchParams.get("employeeId");
     const page = parseInt(searchParams.get("page") || "1");
     const size = parseInt(searchParams.get("size") || "20");
 
-    const where: any = {};
+    const where: LeaveWhereInput = {};
     // Build a combined date window [winStart, winEnd] using month and/or from/to
     let winStart: Date | null = null;
     let winEnd: Date | null = null;
@@ -46,6 +66,7 @@ export async function GET(req: Request) {
     if (status && status !== "all") where.status = status;
     if (type && type !== "all") where.type = type;
     if (department && department !== "all") where.employee = { department };
+    if (employeeId) where.employeeId = parseInt(employeeId);
     if (q) {
       where.employee = {
         ...(where.employee || {}),
@@ -83,25 +104,28 @@ export async function GET(req: Request) {
       prisma.leave.count({ where }),
     ]);
 
-    const data = rows.map((r) => ({
-      id: r.id,
-      type: r.type,
-      startDate: r.startDate.toISOString(),
-      endDate: r.endDate.toISOString(),
-      days: Math.max(1, Math.ceil((r.endDate.getTime() - r.startDate.getTime() + 1) / (1000 * 60 * 60 * 24))),
-      reason: r.reason || "-",
-      status: r.status,
-      employeeId: r.employeeId,
-      employee: `${r.employee.firstName} ${r.employee.lastName}`,
-      employeeEmail: r.employee.email,
-      employeeJobTitle: r.employee.jobTitle,
-      employeePhone: r.employee.phone || "-",
-      employeeStatus: r.employee.status,
-      department: r.employee.department,
-      leaveBalance: r.employee.leaveBalance ?? 0,
-      isPaid: (r as any).isPaid ?? null,
-      paid: /annual|sick|vacation/i.test(r.type) ? true : false,
-    }));
+    const data = rows.map((r) => {
+      const leaveRecord = r as typeof r & { isPaid?: boolean | null };
+      return {
+        id: r.id,
+        type: r.type,
+        startDate: r.startDate.toISOString(),
+        endDate: r.endDate.toISOString(),
+        days: Math.max(1, Math.ceil((r.endDate.getTime() - r.startDate.getTime() + 1) / (1000 * 60 * 60 * 24))),
+        reason: r.reason || "-",
+        status: r.status,
+        employeeId: r.employeeId,
+        employee: `${r.employee.firstName} ${r.employee.lastName}`,
+        employeeEmail: r.employee.email,
+        employeeJobTitle: r.employee.jobTitle,
+        employeePhone: r.employee.phone || "-",
+        employeeStatus: r.employee.status,
+        department: r.employee.department,
+        leaveBalance: r.employee.leaveBalance ?? 0,
+        isPaid: leaveRecord.isPaid ?? null,
+        paid: /annual|sick|vacation/i.test(r.type) ? true : false,
+      };
+    });
 
     // Stats for dashboard cards (scoped to current filter month if provided)
     let monthStart: Date | null = null;
@@ -112,7 +136,7 @@ export async function GET(req: Request) {
       monthEnd = new Date(Date.UTC(y, (m - 1) + 1, 0, 23, 59, 59));
     }
 
-    const statsWhere = { ...(where as any) };
+    const statsWhere: LeaveWhereInput = { ...where };
     if (monthStart && monthEnd) {
       statsWhere.startDate = { gte: monthStart, lte: monthEnd };
     }
@@ -129,16 +153,16 @@ export async function GET(req: Request) {
     // Simple insights & alerts
     // Calendar day status (highest severity: Rejected > Pending > Approved)
     const dayStatus: Record<string, "Approved" | "Pending" | "Rejected"> = {};
-    const severity: Record<string, number> = { Approved: 1, Pending: 2, Rejected: 3 } as any;
+    const severity: Record<string, number> = { Approved: 1, Pending: 2, Rejected: 3 };
     for (const r of monthRows) {
       const d = r.startDate.toISOString().slice(0, 10);
-      if (!dayStatus[d] || severity[r.status] > severity[dayStatus[d]]) dayStatus[d] = r.status as any;
+      if (!dayStatus[d] || severity[r.status] > severity[dayStatus[d]]) dayStatus[d] = r.status as "Approved" | "Pending" | "Rejected";
     }
 
     // Per-employee counts to detect suspicious patterns
     const countsByEmp: Record<number, number> = {};
     for (const r of monthRows) countsByEmp[r.employeeId] = (countsByEmp[r.employeeId] || 0) + 1;
-    const highAbsenteeism = Object.entries(countsByEmp).filter(([_, c]) => (c as number) >= 4).length;
+    const highAbsenteeism = Object.entries(countsByEmp).filter(([, c]) => c >= 4).length;
 
     // Overlap alerts per department per day (rough)
     const overlapsByDept: Record<string, number> = {};
@@ -165,9 +189,10 @@ export async function GET(req: Request) {
       },
       insights: suggestions,
     });
-  } catch (e: any) {
+  } catch (e) {
     console.error("[Leave API GET Error]", e);
-    return NextResponse.json({ error: e.message || "Internal Server Error" }, { status: 500 });
+    const message = e instanceof Error ? e.message : "Internal Server Error";
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }
 
@@ -199,22 +224,20 @@ export async function POST(req: Request) {
       if (okBalance && okOverlap) nextStatus = "Approved";
     }
 
-    // Auto-approve path: balance deduction should always occur if auto-approved; salary paid flag is independent
-    const willBePaid = false; // default salary flag for auto-approve unless set later manually
+    // Auto-approve path: balance deduction should always occur if auto-approved
     let row;
     if (nextStatus === "Approved") {
       // create leave and optionally decrement balance if paid
       row = await prisma.$transaction(async (tx) => {
         const created = await tx.leave.create({
-          data: ({
+          data: {
             employeeId: empId,
             type,
             startDate: s,
             endDate: e,
             reason: reason || null,
             status: nextStatus,
-            isPaid: willBePaid,
-          }) as any,
+          },
         });
         // Always deduct balance on auto-approve
         const empCurrent = await tx.employee.findUnique({ where: { id: empId }, select: { leaveBalance: true } });
@@ -224,31 +247,31 @@ export async function POST(req: Request) {
       });
     } else {
       row = await prisma.leave.create({
-        data: ({
+        data: {
           employeeId: empId,
           type,
           startDate: s,
           endDate: e,
           reason: reason || null,
           status: nextStatus,
-          isPaid: false,
-        }) as any,
+        },
       });
     }
     return NextResponse.json({ success: true, data: row }, { status: 201 });
-  } catch (e: any) {
+  } catch (e) {
     console.error("[Leave API POST Error]", e);
-    return NextResponse.json({ error: e.message || "Invalid request" }, { status: 400 });
+    const message = e instanceof Error ? e.message : "Invalid request";
+    return NextResponse.json({ error: message }, { status: 400 });
   }
 }
 
 export async function PUT(req: Request) {
   try {
     const body = await req.json();
-    const { id, status, reason, maxOverlap, paid } = body as { id: number; status: string; reason?: string; maxOverlap?: number; paid?: boolean };
+    const { id, status, reason, maxOverlap } = body as { id: number; status: string; reason?: string; maxOverlap?: number };
     if (!id || !status) return NextResponse.json({ error: "id and status are required" }, { status: 400 });
-    const data: any = { status };
-    if (reason) data.reason = reason; // store approver/rejector comment visibly
+    const updateData: { status: string; reason?: string } = { status };
+    if (reason) updateData.reason = reason; // store approver/rejector comment visibly
     // Overlap prevention when approving
     if (status === "Approved") {
       const threshold = typeof maxOverlap === "number" ? maxOverlap : 2;
@@ -267,12 +290,11 @@ export async function PUT(req: Request) {
       if (overlaps.length >= threshold) {
         return NextResponse.json({ error: `Too many overlapping leaves in department (${overlaps.length}/${threshold}).` }, { status: 409 });
       }
-      // Determine paidness (salary only); balance deduction is independent and always on first approval
+      // Determine paid status (salary only); balance deduction is independent and always on first approval
       const days = Math.max(1, Math.ceil((target.endDate.getTime() - target.startDate.getTime() + 1) / (1000 * 60 * 60 * 24)));
-      const wantPaid = typeof paid === 'boolean' ? paid : undefined;
       const row = await prisma.$transaction(async (tx) => {
-        const before: any = await tx.leave.findUnique({ where: { id: target.id } });
-        const updated = await tx.leave.update({ where: { id: target.id }, data: ({ ...data, ...(wantPaid !== undefined ? { isPaid: wantPaid } : {}) }) as any });
+        const before = await tx.leave.findUnique({ where: { id: target.id } });
+        const updated = await tx.leave.update({ where: { id: target.id }, data: { ...updateData } });
         if (before?.status !== "Approved") {
           // First time approval: always deduct leave balance by days (clamped at 0)
           const emp = await tx.employee.findUnique({ where: { id: target.employee.id }, select: { leaveBalance: true } });
@@ -299,8 +321,8 @@ export async function PUT(req: Request) {
       if (!target) return NextResponse.json({ error: "Leave not found" }, { status: 404 });
       const days = Math.max(1, Math.ceil((target.endDate.getTime() - target.startDate.getTime() + 1) / (1000 * 60 * 60 * 24)));
       const row = await prisma.$transaction(async (tx) => {
-        const before: any = await tx.leave.findUnique({ where: { id: target.id } });
-        const updated = await tx.leave.update({ where: { id: target.id }, data });
+        const before = await tx.leave.findUnique({ where: { id: target.id } });
+        const updated = await tx.leave.update({ where: { id: target.id }, data: updateData });
         if (before?.status === "Approved") {
           // Restore balance
           const emp = await tx.employee.findUnique({ where: { id: target.employeeId }, select: { leaveBalance: true } });
@@ -318,7 +340,7 @@ export async function PUT(req: Request) {
     }
 
     // Other statuses follow normal path
-    const row = await prisma.leave.update({ where: { id: parseInt(String(id)) }, data });
+    const row = await prisma.leave.update({ where: { id: parseInt(String(id)) }, data: updateData });
     try {
       await prisma.auditLog.create({
         data: {
@@ -329,9 +351,10 @@ export async function PUT(req: Request) {
       });
     } catch {}
     return NextResponse.json({ success: true, data: row }, { status: 200 });
-  } catch (e: any) {
+  } catch (e) {
     console.error("[Leave API PUT Error]", e);
-    return NextResponse.json({ error: e.message || "Invalid request" }, { status: 400 });
+    const message = e instanceof Error ? e.message : "Invalid request";
+    return NextResponse.json({ error: message }, { status: 400 });
   }
 }
 
@@ -344,8 +367,9 @@ export async function DELETE(req: Request) {
     if (!leave) return NextResponse.json({ error: "Leave not found" }, { status: 404 });
     await prisma.leave.delete({ where: { id: leave.id } });
     return NextResponse.json({ success: true, data: leave }, { status: 200 });
-  } catch (e: any) {
+  } catch (e) {
     console.error("[Leave API DELETE Error]", e);
-    return NextResponse.json({ error: e.message || "Invalid request" }, { status: 400 });
+    const message = e instanceof Error ? e.message : "Invalid request";
+    return NextResponse.json({ error: message }, { status: 400 });
   }
 }
