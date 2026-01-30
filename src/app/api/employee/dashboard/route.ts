@@ -51,7 +51,6 @@ interface DashboardResponse {
   performanceTrend: PerformanceData[];
   attendanceTrend: AttendanceTrend[];
   tasksByStatus: { name: string; value: number; color: string }[];
-  tasksByPriority: { name: string; value: number; color: string }[];
   attendanceByStatus: { name: string; value: number; color: string }[];
 }
 
@@ -102,7 +101,6 @@ export async function GET(): Promise<NextResponse<DashboardResponse | { error: s
         performanceTrend: [],
         attendanceTrend: [],
         tasksByStatus: [],
-        tasksByPriority: [],
         attendanceByStatus: [],
       });
     }
@@ -141,9 +139,15 @@ export async function GET(): Promise<NextResponse<DashboardResponse | { error: s
         },
         orderBy: { startDate: "desc" },
       }),
-      prisma.performance.findMany({
+      prisma.performanceGoal.findMany({
         where: { employeeId },
-        orderBy: [{ periodYear: "asc" }, { periodMonth: "asc" }],
+        select: {
+          id: true,
+          progress: true,
+          status: true,
+          createdAt: true,
+        },
+        orderBy: { createdAt: "desc" },
         take: 12,
       }),
       prisma.attendance.findMany({
@@ -162,27 +166,19 @@ export async function GET(): Promise<NextResponse<DashboardResponse | { error: s
       }),
     ]);
 
-    // Process tasks data
-    const completedTasks = tasks.filter((t) => t.status === "completed").length;
-    const pendingTasks = tasks.filter((t) => t.status === "pending").length;
-    const inProgressTasks = tasks.filter((t) => t.status === "in_progress" || t.status === "in-progress").length;
+    // Process tasks data (Case-insensitive status matching)
+    const completedTasks = tasks.filter((t) => t.status.toLowerCase() === "completed").length;
+    const pendingTasks = tasks.filter((t) => t.status.toLowerCase() === "pending").length;
+    const inProgressTasks = tasks.filter((t) => {
+      const status = t.status.toLowerCase();
+      return status === "inprogress" || status === "in_progress" || status === "in-progress";
+    }).length;
 
     // Tasks by status for pie chart
     const tasksByStatus = [
       { name: "Completed", value: completedTasks, color: "#22c55e" },
       { name: "In Progress", value: inProgressTasks, color: "#f97316" },
       { name: "Pending", value: pendingTasks, color: "#eab308" },
-    ].filter((item) => item.value > 0);
-
-    // Tasks by priority for pie chart
-    const highPriority = tasks.filter((t) => t.priority === "high").length;
-    const mediumPriority = tasks.filter((t) => t.priority === "medium").length;
-    const lowPriority = tasks.filter((t) => t.priority === "low").length;
-    
-    const tasksByPriority = [
-      { name: "High", value: highPriority, color: "#ef4444" },
-      { name: "Medium", value: mediumPriority, color: "#f97316" },
-      { name: "Low", value: lowPriority, color: "#22c55e" },
     ].filter((item) => item.value > 0);
 
     // Process leaves data for current year
@@ -213,7 +209,7 @@ export async function GET(): Promise<NextResponse<DashboardResponse | { error: s
       
       const monthData = tasksByMonth.get(monthKey)!;
       monthData.total++;
-      if (task.status === "completed") monthData.completed++;
+      if (task.status.toLowerCase() === "completed") monthData.completed++;
     });
 
     // Generate monthly leave trends
@@ -254,15 +250,15 @@ export async function GET(): Promise<NextResponse<DashboardResponse | { error: s
       });
     }
 
-    // Process performance data
+    // Process performance data from PerformanceGoal
     const performanceTrend: PerformanceData[] = performances.map((p) => ({
-      month: new Date(p.periodYear, p.periodMonth - 1).toLocaleString("default", { month: "short" }),
-      score: p.score,
+      month: new Date(p.createdAt).toLocaleString("default", { month: "short" }),
+      score: p.progress,
     }));
 
     const avgPerformance =
       performances.length > 0
-        ? performances.reduce((sum, p) => sum + p.score, 0) / performances.length
+        ? performances.reduce((sum, p) => sum + p.progress, 0) / performances.length
         : 0;
 
     // Attendance stats for current month
@@ -271,9 +267,17 @@ export async function GET(): Promise<NextResponse<DashboardResponse | { error: s
       return recordDate >= monthStart && recordDate <= monthEnd;
     });
 
-    const currentMonthPresent = currentMonthAttendance.filter((a) => a.status === "Present").length;
-    const currentMonthHalfDay = currentMonthAttendance.filter((a) => a.status === "HalfDay").length;
-    const currentMonthAbsent = currentMonthAttendance.filter((a) => a.status === "Absent").length;
+    // Case-insensitive status matching for attendance
+    const currentMonthPresent = currentMonthAttendance.filter((a) => 
+      a.status.toLowerCase() === "present"
+    ).length;
+    const currentMonthHalfDay = currentMonthAttendance.filter((a) => {
+      const status = a.status.toLowerCase();
+      return status === "halfday" || status === "half day" || status === "half-day";
+    }).length;
+    const currentMonthAbsent = currentMonthAttendance.filter((a) => 
+      a.status.toLowerCase() === "absent"
+    ).length;
     const currentMonthTotal = currentMonthAttendance.length;
     
     const attendanceRate = currentMonthTotal > 0 
@@ -306,9 +310,15 @@ export async function GET(): Promise<NextResponse<DashboardResponse | { error: s
       }
       
       const dayData = attendanceByDay.get(dayKey)!;
-      if (record.status === "Present") dayData.present++;
-      else if (record.status === "HalfDay") dayData.halfDay++;
-      else if (record.status === "Absent") dayData.absent++;
+      const status = record.status.toLowerCase();
+      
+      if (status === "present") {
+        dayData.present++;
+      } else if (status === "halfday" || status === "half day" || status === "half-day") {
+        dayData.halfDay++;
+      } else if (status === "absent") {
+        dayData.absent++;
+      }
     });
 
     // Build attendance trend array for current month (daily)
@@ -352,7 +362,6 @@ export async function GET(): Promise<NextResponse<DashboardResponse | { error: s
       performanceTrend,
       attendanceTrend,
       tasksByStatus,
-      tasksByPriority,
       attendanceByStatus,
     });
   } catch (error) {

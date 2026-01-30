@@ -106,7 +106,6 @@ export default function DashboardPage() {
   const [performanceTrend, setPerformanceTrend] = useState<PerformanceTrend[]>([]);
   const [attendanceTrend, setAttendanceTrend] = useState<AttendanceTrend[]>([]);
   const [tasksByStatus, setTasksByStatus] = useState<PieChartData[]>([]);
-  const [tasksByPriority, setTasksByPriority] = useState<PieChartData[]>([]);
   const [attendanceByStatus, setAttendanceByStatus] = useState<PieChartData[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedPeriod, setSelectedPeriod] = useState<"3m" | "6m" | "1y">("6m");
@@ -133,7 +132,6 @@ export default function DashboardPage() {
         setLeaveTrend(data.leaveTrend || []);
         setPerformanceTrend(data.performanceTrend || []);
         setTasksByStatus(data.tasksByStatus || []);
-        setTasksByPriority(data.tasksByPriority || []);
         // Attendance data
         setAttendanceStats(data.attendanceStats || {
           totalDays: 0,
@@ -177,11 +175,11 @@ export default function DashboardPage() {
           <select 
             value={selectedPeriod}
             onChange={(e) => setSelectedPeriod(e.target.value as "3m" | "6m" | "1y")}
-            className="bg-white/60 backdrop-blur-sm border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 shadow-sm"
+            className="bg-white/60 backdrop-blur-sm border border-gray-200 rounded-lg px-3 py-1.5 text-sm text-gray-900 font-medium focus:outline-none focus:ring-2 focus:ring-orange-500 shadow-sm"
           >
-            <option value="3m">3 Months</option>
-            <option value="6m">6 Months</option>
-            <option value="1y">1 Year</option>
+            <option value="3m" className="text-gray-900">3 Months</option>
+            <option value="6m" className="text-gray-900">6 Months</option>
+            <option value="1y" className="text-gray-900">1 Year</option>
           </select>
         </div>
       </div>
@@ -391,11 +389,11 @@ export default function DashboardPage() {
           </div>
 
           {/* Pie Charts Row */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4">
             {/* Tasks by Status Pie Chart */}
             <div className="bg-white/70 backdrop-blur-md border border-white/40 rounded-2xl shadow-lg p-4">
               <h3 className="text-lg font-semibold text-gray-900 mb-4">Tasks by Status</h3>
-              <div className="h-52">
+              <div className="h-64">
                 {loading ? (
                   <div className="h-full flex items-center justify-center text-gray-500">Loading...</div>
                 ) : tasksByStatus.length === 0 ? (
@@ -407,8 +405,8 @@ export default function DashboardPage() {
                         data={tasksByStatus}
                         cx="50%"
                         cy="50%"
-                        innerRadius={40}
-                        outerRadius={70}
+                        innerRadius={50}
+                        outerRadius={90}
                         paddingAngle={5}
                         dataKey="value"
                         label={({ name, percent }) => name && percent !== undefined ? `${name}: ${(percent * 100).toFixed(0)}%` : ''}
@@ -427,47 +425,7 @@ export default function DashboardPage() {
                           boxShadow: "0 4px 20px rgba(0, 0, 0, 0.1)"
                         }}
                       />
-                    </PieChart>
-                  </ResponsiveContainer>
-                )}
-              </div>
-            </div>
-
-            {/* Tasks by Priority Pie Chart */}
-            <div className="bg-white/70 backdrop-blur-md border border-white/40 rounded-2xl shadow-lg p-4">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Tasks by Priority</h3>
-              <div className="h-52">
-                {loading ? (
-                  <div className="h-full flex items-center justify-center text-gray-500">Loading...</div>
-                ) : tasksByPriority.length === 0 ? (
-                  <div className="h-full flex items-center justify-center text-gray-500">No tasks yet</div>
-                ) : (
-                  <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Pie
-                        data={tasksByPriority}
-                        cx="50%"
-                        cy="50%"
-                        innerRadius={40}
-                        outerRadius={70}
-                        paddingAngle={5}
-                        dataKey="value"
-                        label={({ name, percent }) => name && percent !== undefined ? `${name}: ${(percent * 100).toFixed(0)}%` : ''}
-                        labelLine={false}
-                      >
-                        {tasksByPriority.map((entry, index) => (
-                          <Cell key={`cell-priority-${index}`} fill={entry.color} />
-                        ))}
-                      </Pie>
-                      <Tooltip 
-                        contentStyle={{
-                          backgroundColor: "rgba(255, 255, 255, 0.95)",
-                          backdropFilter: "blur(10px)",
-                          border: "none",
-                          borderRadius: "8px",
-                          boxShadow: "0 4px 20px rgba(0, 0, 0, 0.1)"
-                        }}
-                      />
+                      <Legend />
                     </PieChart>
                   </ResponsiveContainer>
                 )}
