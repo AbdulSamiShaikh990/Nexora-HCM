@@ -8,15 +8,31 @@ export async function GET(req: Request) {
     const url = new URL(req.url);
     const stage = url.searchParams.get("stage");
     const jobId = url.searchParams.get("jobId");
-    const candidateId = url.searchParams.get("candidateId");
+    const candidateName = url.searchParams.get("candidateName");
     const q = (url.searchParams.get("q") || "").toLowerCase();
     const where: any = {};
     if (stage) where.stage = stage;
     if (jobId) where.jobId = Number(jobId);
-    if (candidateId) where.candidateId = Number(candidateId);
-    if (q) where.notes = { contains: q, mode: "insensitive" };
+    if (candidateName) where.candidateName = { contains: candidateName, mode: "insensitive" };
+    if (q) {
+      where.OR = [
+        { notes: { contains: q, mode: "insensitive" } },
+        { candidateName: { contains: q, mode: "insensitive" } },
+        { candidateEmail: { contains: q, mode: "insensitive" } }
+      ];
+    }
     const list = await prisma.application.findMany({
       where,
+      include: {
+        job: {
+          select: {
+            title: true,
+            department: true,
+            location: true,
+            status: true
+          }
+        }
+      },
       orderBy: { createdAt: "desc" },
     });
     return NextResponse.json(list, { status: 200 });
@@ -30,12 +46,16 @@ export async function POST(req: Request) {
   try {
     const body = await req.json();
     const jobIdRaw = String(body?.jobId || "").trim();
-    const candidateIdRaw = String(body?.candidateId || "").trim();
-    if (!jobIdRaw || !candidateIdRaw) {
-      return NextResponse.json({ error: "jobId and candidateId are required" }, { status: 400 });
+    const candidateName = String(body?.candidateName || "").trim();
+    const candidateEmail = body?.candidateEmail ? String(body.candidateEmail).trim() : null;
+    const candidatePhone = body?.candidatePhone ? String(body.candidatePhone).trim() : null;
+    const candidateSkills = Array.isArray(body?.candidateSkills) ? body.candidateSkills : [];
+    
+    if (!jobIdRaw || !candidateName) {
+      return NextResponse.json({ error: "jobId and candidateName are required" }, { status: 400 });
     }
+    
     const jobId = Number(jobIdRaw);
-    const candidateId = Number(candidateIdRaw);
     const job = await prisma.job.findUnique({ where: { id: jobId } });
     if (!job) return NextResponse.json({ error: "job not found" }, { status: 404 });
     if (job.status === "closed") {
@@ -73,7 +93,10 @@ export async function POST(req: Request) {
     const created = await prisma.application.create({
       data: {
         jobId,
-        candidateId,
+        candidateName,
+        candidateEmail,
+        candidatePhone,
+        candidateSkills,
         stage,
         notes: body?.notes ? String(body.notes) : null,
         scorePercent,

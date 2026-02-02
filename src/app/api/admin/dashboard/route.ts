@@ -369,7 +369,7 @@ export async function GET(request: Request) {
       }
     });
 
-    const totalCandidates = await prisma.candidate.count();
+    const totalCandidates = await prisma.application.count();
 
     // 8. REMOTE WORK REQUESTS
     const remoteWorkRequests = await prisma.remoteWorkRequest.findMany({

@@ -1,46 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { Prisma } from "@prisma/client";
-
-// In-memory store for demo purposes (process lifetime only) shared via globalThis
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const mod = globalThis as any;
-if (!mod.__RECRUITMENT_JOBS__) mod.__RECRUITMENT_JOBS__ = [] as Array<{
-  id: string;
-  title: string;
-  department?: string | null;
-  location?: string | null;
-  type?: string | null;
-  description?: string | null;
-  status: "open" | "closed";
-  createdAt: string;
-  updatedAt: string;
-}>;
-let JOBS: Array<{
-  id: string;
-  title: string;
-  department?: string | null;
-  location?: string | null;
-  type?: string | null; // e.g., Full-time, Part-time, Contract
-  description?: string | null;
-  descriptionRich?: string | null;
-  expiresAt?: string | null;
-  autoTemplate?: boolean;
-  externalPost?: boolean;
-  test?: {
-    enabled: boolean;
-    passingPercent: number; // 0-100
-    questions: Array<{
-      id: string;
-      text: string;
-      options?: string[]; // optional MCQ options
-      correctAnswers: string[]; // one or multiple accepted answers
-    }>;
-  } | null;
-  status: "open" | "closed";
-  createdAt: string;
-  updatedAt: string;
-}> = mod.__RECRUITMENT_JOBS__;
+import { generateQuestionTemplate } from "@/lib/questionTemplates";
 
 function nowISO() {
   return new Date().toISOString();
@@ -51,17 +12,29 @@ export async function GET(req: Request) {
     const url = new URL(req.url);
     const status = url.searchParams.get("status"); // open | closed
     const q = (url.searchParams.get("q") || "").toLowerCase();
+    
     const where: any = {};
-    if (status === "open" || status === "closed") where.status = status;
+    
+    // Filter by status
+    if (status === "open" || status === "closed") {
+      where.status = status;
+    }
+    
+    // Search in title, department, location, type
     if (q) {
       where.OR = [
         { title: { contains: q, mode: "insensitive" } },
         { department: { contains: q, mode: "insensitive" } },
         { location: { contains: q, mode: "insensitive" } },
-        { type: { contains: q, mode: "insensitive" } },
+        { type: { contains: q, mode: "insensitive" } }
       ];
     }
-    const jobs = await prisma.job.findMany({ where, orderBy: { createdAt: "desc" } });
+    
+    const jobs = await prisma.job.findMany({
+      where,
+      orderBy: { createdAt: "desc" },
+    });
+    
     return NextResponse.json(jobs, { status: 200 });
   } catch (err) {
     console.error("Jobs GET error:", err);
@@ -87,20 +60,39 @@ export async function POST(req: Request) {
       description = `We are seeking a ${title} to join our ${body?.department ? String(body.department) : ""} team.\n\nResponsibilities:\n- Work with cross-functional teams\n- Deliver high-quality outcomes\n\nQualifications:\n- Relevant experience\n- Strong communication skills`;
     }
 
-    // Optional test configuration
+    // Generate question template based on job role
+    const questionTemplate = generateQuestionTemplate(title, description || "");
+
+    // Optional test configuration - use generated template by default
     let test = null as null | {
       enabled: boolean;
       passingPercent: number;
-      questions: Array<{ id: string; text: string; options?: string[]; correctAnswers: string[] }>;
+      questions: Array<{ id: string; text: string; type?: string; options?: string[]; correctAnswers?: string[]; category?: string }>;
     };
-    if (body?.test?.enabled) {
-      const passing = Number(body.test.passingPercent ?? 60);
-      const questions = Array.isArray(body.test.questions) ? body.test.questions.map((q: any) => ({
-        id: q?.id ? String(q.id) : crypto.randomUUID(),
-        text: String(q?.text || ""),
-        options: Array.isArray(q?.options) ? q.options.map(String) : undefined,
-        correctAnswers: Array.isArray(q?.correctAnswers) ? q.correctAnswers.map(String) : [],
-      })).filter((q: any) => q.text && q.correctAnswers.length > 0) : [];
+    
+    const testEnabled = Boolean(body?.test?.enabled ?? true); // Default to true
+    if (testEnabled) {
+      const passing = Number(body?.test?.passingPercent ?? 60);
+      
+      // Use custom questions if provided, otherwise use generated template
+      const questions = Array.isArray(body?.test?.questions) && body.test.questions.length > 0 
+        ? body.test.questions.map((q: any) => ({
+            id: q?.id ? String(q.id) : crypto.randomUUID(),
+            text: String(q?.text || ""),
+            type: q?.type || 'text',
+            options: Array.isArray(q?.options) ? q.options.map(String) : undefined,
+            correctAnswers: Array.isArray(q?.correctAnswers) ? q.correctAnswers.map(String) : [],
+            category: q?.category || 'custom'
+          })).filter((q: any) => q.text)
+        : questionTemplate.map(q => ({
+            id: q.id,
+            text: q.text,
+            type: q.type,
+            options: q.options,
+            correctAnswers: q.correctAnswers || [],
+            category: q.category
+          }));
+      
       test = { enabled: true, passingPercent: Math.max(0, Math.min(100, passing)), questions };
     }
 
@@ -119,12 +111,19 @@ export async function POST(req: Request) {
         testEnabled: !!test?.enabled,
         testPassingPercent: test?.enabled ? test.passingPercent : null,
         test: test?.enabled ? (test as any) : Prisma.DbNull,
+        questionTemplate: questionTemplate as any,
       },
     });
 
     if (externalPost) {
-      await prisma.notification.create({ data: { type: "job.externalPostStub", payload: { jobId: created.id } } });
+      await prisma.notification.create({ 
+        data: { 
+          type: "job.externalPostStub", 
+          payload: { jobId: created.id } 
+        } 
+      });
     }
+    
     return NextResponse.json(created, { status: 201 });
   } catch (err) {
     console.error("Jobs POST error:", err);

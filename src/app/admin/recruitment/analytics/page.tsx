@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 
 interface Analytics {
   total: number;
@@ -14,6 +15,7 @@ interface Analytics {
 interface NotificationItem { id: string; type: string; payload: any; createdAt: string }
 
 export default function AnalyticsPage() {
+  const router = useRouter();
   const [data, setData] = useState<Analytics | null>(null);
   const [notifs, setNotifs] = useState<NotificationItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -43,7 +45,21 @@ export default function AnalyticsPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Recruitment Analytics</h1>
+      {/* Back Button */}
+      <div className="flex items-center gap-4">
+        <button 
+          onClick={() => router.push('/admin/recruitment')}
+          className="group flex items-center gap-3 px-6 py-3 bg-white/90 backdrop-blur-xl border border-white/20 hover:bg-white shadow-lg hover:shadow-xl rounded-2xl transition-all duration-300"
+        >
+          <div className="w-8 h-8 bg-gradient-to-r from-indigo-500 to-purple-600 rounded-xl flex items-center justify-center text-white group-hover:scale-110 transition-transform">
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+            </svg>
+          </div>
+          <span className="text-gray-700 font-medium">Back to Recruitment Hub</span>
+        </button>
+        <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Recruitment Analytics</h1>
+      </div>
       {loading ? <div>Loading...</div> : error ? <div className="text-red-600">{error}</div> : (
         <>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">

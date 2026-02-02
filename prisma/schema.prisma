@@ -284,46 +284,40 @@ model Job {
   expiresAt          DateTime?
   autoTemplate       Boolean   @default(false)
   externalPost       Boolean   @default(false)
-  testEnabled        Boolean   @default(false)
-  testPassingPercent Int?
+  testEnabled        Boolean   @default(true)
+  testPassingPercent Int?      @default(60)
   test               Json?
+  questionTemplate   Json?     // Built-in questions based on job role
   createdAt          DateTime  @default(now())
   updatedAt          DateTime  @updatedAt
 
   applications Application[]
 }
 
-model Candidate {
-  id        Int       @id @default(autoincrement())
-  name      String
-  email     String?   @unique
-  phone     String?
-  skills    String[]  @default([])
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
 
-  applications Application[]
-}
 
 model Application {
-  id           Int        @id @default(autoincrement())
-  jobId        Int
-  candidateId  Int
-  stage        String
-  notes        String?
-  scorePercent Int?
-  passed       Boolean?
-  answers      Json?
-  createdAt    DateTime   @default(now())
-  updatedAt    DateTime   @updatedAt
+  id             Int        @id @default(autoincrement())
+  jobId          Int
+  candidateName  String
+  candidateEmail String?
+  candidatePhone String?
+  candidateSkills String[]  @default([])
+  stage          String
+  notes          String?
+  scorePercent   Int?
+  passed         Boolean?
+  answers        Json?
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
 
   job       Job       @relation(fields: [jobId], references: [id], onDelete: Cascade)
-  candidate Candidate @relation(fields: [candidateId], references: [id], onDelete: Cascade)
   feedbacks Feedback[]
 
   @@index([jobId])
-  @@index([candidateId])
   @@index([stage])
+  @@index([candidateName])
+  @@index([candidateEmail])
 }
 
 model Feedback {
