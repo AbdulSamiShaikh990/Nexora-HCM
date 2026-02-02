@@ -429,19 +429,30 @@ export default function Page() {
     }
   };
 
-  const onProcess = () => {
+  const onProcess = async () => {
     if (payrollFrozen) {
       add("Payroll frozen. Unfreeze to process.");
       return;
     }
-    add("Processing payroll...");
-    setTimeout(() => {
-      // mark pending records as processed and update KPIs
-      setRecs((prev) => prev.map((r) => (r.status === "Pending" ? { ...r, status: "Processed" } : r)));
-      setKpi((prev) => ({ ...prev, processed: prev.processed + prev.pending, pending: 0 }));
-      add("Payroll processed successfully (mock)");
+    try {
+      add("Processing payroll...");
+      const res = await fetch("/api/payroll", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "process", period: periodStr }),
+      });
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.error || "Failed to process payroll");
+      }
+      const json = await res.json();
+      add(`Payroll processed successfully (${json.processed ?? 0} records)`);
       appendAudit("Payroll processed", periodLabel);
-    }, 800);
+      await autoLoadAndGenerate();
+    } catch (err) {
+      console.error(err);
+      add("Payroll processing failed");
+    }
   };
 
   const onRollback = () => {

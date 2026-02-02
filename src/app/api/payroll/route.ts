@@ -32,6 +32,28 @@ export async function GET(req: Request) {
     if (status) where.status = status;
     if (employeeId) where.employeeId = Number(employeeId);
 
+    if (runId && run?.periodYear && run?.periodMonth) {
+      const nextMonth = run.periodMonth === 12 ? 1 : run.periodMonth + 1;
+      const nextYear = run.periodMonth === 12 ? run.periodYear + 1 : run.periodYear;
+      const defaultPayDate = new Date(nextYear, nextMonth - 1, 4);
+      await prisma.payrollRecord.updateMany({
+        where: { runId, payDate: null },
+        data: { payDate: defaultPayDate },
+      });
+    }
+
+    if (runId) {
+      const today = new Date();
+      await prisma.payrollRecord.updateMany({
+        where: {
+          runId,
+          status: "Pending",
+          payDate: { lte: today },
+        },
+        data: { status: "Processed" },
+      });
+    }
+
     const total = await prisma.payrollRecord.count({ where });
     const data = await prisma.payrollRecord.findMany({
       where,
@@ -100,6 +122,10 @@ export async function POST(req: Request) {
       update: { status: "processing" },
       create: { periodYear: year, periodMonth: month, status: "processing", currency: "PKR" },
     });
+
+    const nextMonth = month === 12 ? 1 : month + 1;
+    const nextYear = month === 12 ? year + 1 : year;
+    const defaultPayDate = new Date(nextYear, nextMonth - 1, 4);
 
     const employees = await prisma.employee.findMany({ where: { status: "Active" } });
 
@@ -266,7 +292,7 @@ export async function POST(req: Request) {
           deductions: finalDeductions,
           netPay: net,
           status: "Pending",
-          payDate: null,
+          payDate: defaultPayDate,
           periodYear: year,
           periodMonth: month,
           overtimeHours,
@@ -293,8 +319,24 @@ export async function PATCH(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
     const id = Number(searchParams.get("id"));
-    if (!id) return NextResponse.json({ error: "Missing id" }, { status: 400 });
     const body = await req.json();
+    if (!id) {
+      if (body?.action !== "process") {
+        return NextResponse.json({ error: "Missing id" }, { status: 400 });
+      }
+      const period = body?.period as string | undefined;
+      if (!period) return NextResponse.json({ error: "Missing period" }, { status: 400 });
+      const [y, m] = period.split("-").map((n) => Number(n));
+      if (!isFinite(y) || !isFinite(m)) return NextResponse.json({ error: "Invalid period" }, { status: 400 });
+      const run = await prisma.payrollRun.findFirst({ where: { periodYear: y, periodMonth: m } });
+      if (!run) return NextResponse.json({ error: "Run not found" }, { status: 404 });
+      const processedAt = new Date();
+      const result = await prisma.payrollRecord.updateMany({
+        where: { runId: run.id, status: "Pending" },
+        data: { status: "Processed", payDate: processedAt },
+      });
+      return NextResponse.json({ success: true, processed: result.count }, { status: 200 });
+    }
     const record = await prisma.payrollRecord.findUnique({ where: { id } });
     if (!record) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
