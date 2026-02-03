@@ -1,4 +1,5 @@
 "use client";
+// cspell:ignore nexora Nexora
 
 import { useEffect, useState } from "react";
 import {
@@ -38,6 +39,8 @@ const defaultSettings = {
   payrollNotifications: true,
 };
 
+type SettingsState = typeof defaultSettings;
+
 export default function SettingsPage() {
   const [activeTab, setActiveTab] = useState<SettingsTab>("general");
   const [saving, setSaving] = useState(false);
@@ -52,7 +55,7 @@ export default function SettingsPage() {
   });
 
   // Settings State
-  const [settings, setSettings] = useState(defaultSettings);
+  const [settings, setSettings] = useState<SettingsState>(defaultSettings);
 
   useEffect(() => {
     const fetchSettings = async () => {
@@ -98,7 +101,7 @@ export default function SettingsPage() {
               s.notifications?.payrollNotifications ?? defaultSettings.payrollNotifications,
           });
         }
-      } catch (error) {
+      } catch {
         setMessage({ type: "error", text: "Failed to load settings" });
       } finally {
         setLoading(false);
@@ -137,7 +140,7 @@ export default function SettingsPage() {
 
       setMessage({ type: "success", text: "Settings saved successfully" });
       setTimeout(() => setMessage(null), 3000);
-    } catch (error) {
+    } catch {
       setMessage({ type: "error", text: "Failed to save settings" });
     } finally {
       setSaving(false);
@@ -150,7 +153,7 @@ export default function SettingsPage() {
     setTimeout(() => setMessage(null), 3000);
   };
 
-  const updateSetting = (key: string, value: any) => {
+  const updateSetting = <K extends keyof SettingsState>(key: K, value: SettingsState[K]) => {
     setSettings((prev) => ({ ...prev, [key]: value }));
   };
 

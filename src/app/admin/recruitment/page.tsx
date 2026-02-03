@@ -15,6 +15,7 @@ export default function RecruitmentPage() {
     setLoading(true);
     setError(null);
     try {
+      // cspell:ignore recuirment
       const [jr, ar] = await Promise.all([
         fetch("/api/recuirment/jobs"),
         fetch("/api/recuirment/analytics"),
@@ -25,8 +26,9 @@ export default function RecruitmentPage() {
       setJobsCount(Array.isArray(j) ? j.length : 0);
       setTotalApps(Number(a?.total || 0));
       setByStage(a?.byStage || {});
-    } catch (e: any) {
-      setError(e.message || "Error");
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : "Error";
+      setError(message);
     } finally {
       setLoading(false);
     }
@@ -64,7 +66,7 @@ export default function RecruitmentPage() {
 
   const pieChartData = useMemo(() => {
     return Object.entries(byStage)
-      .filter(([_, count]) => count > 0)
+      .filter(([stage, count]) => stage && count > 0)
       .map(([stage, count]) => ({
         name: stage.charAt(0).toUpperCase() + stage.slice(1),
         value: count,
@@ -73,56 +75,58 @@ export default function RecruitmentPage() {
   }, [byStage]);
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="max-w-7xl mx-auto px-4 py-8 space-y-8">
+    <div className="min-h-screen relative overflow-hidden">
+      <div className="absolute inset-0 bg-gradient-to-br from-blue-600/10 via-cyan-600/10 to-teal-600/10"></div>
+      <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiM5YzkyYWMiIGZpbGwtb3BhY2l0eT0iMC4wNSI+PHBhdGggZD0iTTM2IDM0djItaDJ2LTJoLTJ6bTAtNHYyaDJ2LTJoLTJ6bTAtNHYyaDJ2LTJoLTJ6bTAtNHYyaDJ2LTJoLTJ6Ii8+PC9nPjwvZz48L3N2Zz4=')] opacity-30"></div>
+      <div className="max-w-7xl mx-auto px-4 py-8 space-y-8 relative z-10">
         {/* Header */}
-        <div className="text-center">
-          <h1 className="text-4xl font-bold text-gray-900">
+        <div className="text-center backdrop-blur-xl bg-white/60 rounded-3xl border border-white/40 shadow-xl p-8">
+          <h1 className="text-5xl font-bold bg-gradient-to-r from-blue-600 via-cyan-600 to-teal-600 bg-clip-text text-transparent">
             Recruitment Hub
           </h1>
-          <p className="mt-3 text-lg text-gray-600">
+          <p className="mt-3 text-lg text-slate-700 font-medium">
             Manage job postings and hiring pipeline with AI-powered assessments
           </p>
         </div>
 
         {/* Quick Actions - Moved to Top */}
-        <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h3>
+        <div className="backdrop-blur-xl bg-white/60 rounded-3xl border border-white/40 shadow-xl p-6">
+          <h3 className="text-xl font-bold text-slate-900 mb-4">Quick Actions</h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <a href="/admin/recruitment/jobs" className="flex items-center gap-3 p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors group">
-              <div className="w-10 h-10 bg-slate-600 rounded-lg flex items-center justify-center text-white">
+            <a href="/admin/recruitment/jobs" className="flex items-center gap-3 p-4 backdrop-blur-md bg-white/50 rounded-2xl hover:bg-white/70 hover:scale-105 transition-all duration-300 group border border-white/40 shadow-lg">
+              <div className="w-10 h-10 bg-gradient-to-br from-slate-700 to-slate-900 rounded-xl shadow-lg flex items-center justify-center text-white">
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
                 </svg>
               </div>
-              <span className="font-medium text-gray-900">Create New Job</span>
+              <span className="font-bold text-slate-900">Create New Job</span>
             </a>
             
-            <a href="/admin/recruitment/applications" className="flex items-center gap-3 p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors group">
-              <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center text-white">
+            <a href="/admin/recruitment/applications" className="flex items-center gap-3 p-4 backdrop-blur-md bg-white/50 rounded-2xl hover:bg-white/70 hover:scale-105 transition-all duration-300 group border border-white/40 shadow-lg">
+              <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-cyan-600 rounded-xl shadow-lg flex items-center justify-center text-white">
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
                 </svg>
               </div>
-              <span className="font-medium text-gray-900">Review Applications</span>
+              <span className="font-bold text-slate-900">Review Applications</span>
             </a>
             
-            <a href="/admin/recruitment/pipeline" className="flex items-center gap-3 p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors group">
-              <div className="w-10 h-10 bg-amber-600 rounded-lg flex items-center justify-center text-white">
+            <a href="/admin/recruitment/pipeline" className="flex items-center gap-3 p-4 backdrop-blur-md bg-white/50 rounded-2xl hover:bg-white/70 hover:scale-105 transition-all duration-300 group border border-white/40 shadow-lg">
+              <div className="w-10 h-10 bg-gradient-to-br from-amber-600 to-orange-600 rounded-xl shadow-lg flex items-center justify-center text-white">
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                 </svg>
               </div>
-              <span className="font-medium text-gray-900">Manage Pipeline</span>
+              <span className="font-bold text-slate-900">Manage Pipeline</span>
             </a>
             
-            <a href="/admin/recruitment/analytics" className="flex items-center gap-3 p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors group">
-              <div className="w-10 h-10 bg-slate-700 rounded-lg flex items-center justify-center text-white">
+            <a href="/admin/recruitment/analytics" className="flex items-center gap-3 p-4 backdrop-blur-md bg-white/50 rounded-2xl hover:bg-white/70 hover:scale-105 transition-all duration-300 group border border-white/40 shadow-lg">
+              <div className="w-10 h-10 bg-gradient-to-br from-slate-700 to-slate-900 rounded-xl shadow-lg flex items-center justify-center text-white">
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
                 </svg>
               </div>
-              <span className="font-medium text-gray-900">View Analytics</span>
+              <span className="font-bold text-slate-900">View Analytics</span>
             </a>
           </div>
         </div>
@@ -130,16 +134,16 @@ export default function RecruitmentPage() {
         {/* Navigation Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
           <a href="/admin/recruitment/jobs" className="group block">
-            <div className="bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition-all duration-200 p-6">
+            <div className="backdrop-blur-xl bg-gradient-to-br from-slate-500/10 to-slate-700/10 rounded-3xl border border-white/40 shadow-xl hover:shadow-2xl hover:scale-[1.05] transition-all duration-300 p-6">
               <div className="text-center">
-                <div className="w-12 h-12 bg-slate-600 rounded-lg flex items-center justify-center mx-auto mb-4">
-                  <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <div className="w-14 h-14 bg-gradient-to-br from-slate-700 to-slate-900 rounded-2xl shadow-xl flex items-center justify-center mx-auto mb-4">
+                  <svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2-2v2m8 0V6a2 2 0 012 2v6M8 8v10l4-2 4 2V8a2 2 0 00-2-2H10a2 2 0 00-2 2z" />
                   </svg>
                 </div>
-                <h3 className="text-lg font-semibold text-gray-900 mb-2">Jobs</h3>
-                <p className="text-gray-600 text-sm mb-3">Create and manage job postings</p>
-                <div className="bg-slate-100 text-slate-700 px-3 py-1 rounded-md text-sm font-medium inline-block">
+                <h3 className="text-xl font-bold text-slate-900 mb-2">Jobs</h3>
+                <p className="text-slate-700 text-sm mb-3 font-medium">Create and manage job postings</p>
+                <div className="backdrop-blur-md bg-slate-600/20 text-slate-800 px-4 py-2 rounded-xl text-sm font-bold inline-block border border-slate-400/30">
                   {jobsCount} Active Jobs
                 </div>
               </div>
@@ -147,16 +151,16 @@ export default function RecruitmentPage() {
           </a>
 
           <a href="/admin/recruitment/applications" className="group block">
-            <div className="bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition-all duration-200 p-6">
+            <div className="backdrop-blur-xl bg-gradient-to-br from-blue-500/10 to-cyan-500/10 rounded-3xl border border-white/40 shadow-xl hover:shadow-2xl hover:scale-[1.05] transition-all duration-300 p-6">
               <div className="text-center">
-                <div className="w-12 h-12 bg-blue-600 rounded-lg flex items-center justify-center mx-auto mb-4">
-                  <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <div className="w-14 h-14 bg-gradient-to-br from-blue-600 to-cyan-600 rounded-2xl shadow-xl flex items-center justify-center mx-auto mb-4">
+                  <svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                   </svg>
                 </div>
-                <h3 className="text-lg font-semibold text-gray-900 mb-2">Applications</h3>
-                <p className="text-gray-600 text-sm mb-3">Review and manage applications</p>
-                <div className="bg-blue-100 text-blue-700 px-3 py-1 rounded-md text-sm font-medium inline-block">
+                <h3 className="text-xl font-bold text-slate-900 mb-2">Applications</h3>
+                <p className="text-slate-700 text-sm mb-3 font-medium">Review and manage applications</p>
+                <div className="backdrop-blur-md bg-blue-600/20 text-blue-800 px-4 py-2 rounded-xl text-sm font-bold inline-block border border-blue-400/30">
                   {totalApps} Total Apps
                 </div>
               </div>
@@ -164,16 +168,16 @@ export default function RecruitmentPage() {
           </a>
 
           <a href="/admin/recruitment/pipeline" className="group block">
-            <div className="bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition-all duration-200 p-6">
+            <div className="backdrop-blur-xl bg-gradient-to-br from-amber-500/10 to-orange-500/10 rounded-3xl border border-white/40 shadow-xl hover:shadow-2xl hover:scale-[1.05] transition-all duration-300 p-6">
               <div className="text-center">
-                <div className="w-12 h-12 bg-amber-600 rounded-lg flex items-center justify-center mx-auto mb-4">
-                  <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <div className="w-14 h-14 bg-gradient-to-br from-amber-600 to-orange-600 rounded-2xl shadow-xl flex items-center justify-center mx-auto mb-4">
+                  <svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
                   </svg>
                 </div>
-                <h3 className="text-lg font-semibold text-gray-900 mb-2">Pipeline</h3>
-                <p className="text-gray-600 text-sm mb-3">Track hiring progress</p>
-                <div className="bg-amber-100 text-amber-700 px-3 py-1 rounded-md text-sm font-medium inline-block">
+                <h3 className="text-xl font-bold text-slate-900 mb-2">Pipeline</h3>
+                <p className="text-slate-700 text-sm mb-3 font-medium">Track hiring progress</p>
+                <div className="backdrop-blur-md bg-amber-600/20 text-amber-800 px-4 py-2 rounded-xl text-sm font-bold inline-block border border-amber-400/30">
                   {remaining} In Pipeline
                 </div>
               </div>
@@ -181,16 +185,16 @@ export default function RecruitmentPage() {
           </a>
 
           <a href="/admin/recruitment/analytics" className="group block">
-            <div className="bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition-all duration-200 p-6">
+            <div className="backdrop-blur-xl bg-gradient-to-br from-slate-500/10 to-slate-700/10 rounded-3xl border border-white/40 shadow-xl hover:shadow-2xl hover:scale-[1.05] transition-all duration-300 p-6">
               <div className="text-center">
-                <div className="w-12 h-12 bg-slate-700 rounded-lg flex items-center justify-center mx-auto mb-4">
-                  <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <div className="w-14 h-14 bg-gradient-to-br from-slate-700 to-slate-900 rounded-2xl shadow-xl flex items-center justify-center mx-auto mb-4">
+                  <svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
                   </svg>
                 </div>
-                <h3 className="text-lg font-semibold text-gray-900 mb-2">Analytics</h3>
-                <p className="text-gray-600 text-sm mb-3">View recruitment insights</p>
-                <div className="bg-slate-100 text-slate-700 px-3 py-1 rounded-md text-sm font-medium inline-block">
+                <h3 className="text-xl font-bold text-slate-900 mb-2">Analytics</h3>
+                <p className="text-slate-700 text-sm mb-3 font-medium">View recruitment insights</p>
+                <div className="backdrop-blur-md bg-slate-600/20 text-slate-800 px-4 py-2 rounded-xl text-sm font-bold inline-block border border-slate-400/30">
                   View Reports
                 </div>
               </div>
@@ -200,15 +204,15 @@ export default function RecruitmentPage() {
 
         {/* Stats Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
-          <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
+          <div className="backdrop-blur-xl bg-gradient-to-br from-slate-500/10 to-slate-700/10 rounded-3xl border border-white/40 shadow-xl p-6 hover:shadow-2xl hover:scale-[1.02] transition-all duration-300">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600">Total Applications</p>
-                <p className="text-3xl font-bold text-gray-900 mt-2">
+                <p className="text-sm font-bold text-slate-700">Total Applications</p>
+                <p className="text-4xl font-bold bg-gradient-to-r from-slate-700 to-slate-900 bg-clip-text text-transparent mt-2">
                   {loading ? "..." : totalApps}
                 </p>
               </div>
-              <div className="w-12 h-12 bg-slate-100 rounded-lg flex items-center justify-center">
+              <div className="w-14 h-14 bg-gradient-to-br from-slate-600 to-slate-800 rounded-2xl shadow-lg flex items-center justify-center">
                 <svg className="w-6 h-6 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                 </svg>
@@ -216,15 +220,15 @@ export default function RecruitmentPage() {
             </div>
           </div>
 
-          <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
+          <div className="backdrop-blur-xl bg-gradient-to-br from-amber-500/10 to-orange-500/10 rounded-3xl border border-white/40 shadow-xl p-6 hover:shadow-2xl hover:scale-[1.02] transition-all duration-300">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600">In Pipeline</p>
-                <p className="text-3xl font-bold text-gray-900 mt-2">
+                <p className="text-sm font-bold text-slate-700">In Pipeline</p>
+                <p className="text-4xl font-bold bg-gradient-to-r from-amber-600 to-orange-600 bg-clip-text text-transparent mt-2">
                   {loading ? "..." : remaining}
                 </p>
               </div>
-              <div className="w-12 h-12 bg-amber-100 rounded-lg flex items-center justify-center">
+              <div className="w-14 h-14 bg-gradient-to-br from-amber-600 to-orange-600 rounded-2xl shadow-lg flex items-center justify-center">
                 <svg className="w-6 h-6 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
@@ -232,15 +236,15 @@ export default function RecruitmentPage() {
             </div>
           </div>
 
-          <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
+          <div className="backdrop-blur-xl bg-gradient-to-br from-blue-500/10 to-cyan-500/10 rounded-3xl border border-white/40 shadow-xl p-6 hover:shadow-2xl hover:scale-[1.02] transition-all duration-300">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600">Active Jobs</p>
-                <p className="text-3xl font-bold text-gray-900 mt-2">
+                <p className="text-sm font-bold text-slate-700">Active Jobs</p>
+                <p className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent mt-2">
                   {loading ? "..." : jobsCount}
                 </p>
               </div>
-              <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
+              <div className="w-14 h-14 bg-gradient-to-br from-blue-600 to-cyan-600 rounded-2xl shadow-lg flex items-center justify-center">
                 <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2-2v2m8 0V6a2 2 0 012 2v6M8 8v10l4-2 4 2V8a2 2 0 00-2-2H10a2 2 0 00-2 2z" />
                 </svg>
@@ -252,10 +256,10 @@ export default function RecruitmentPage() {
         {/* Charts Section */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Bar Chart */}
-          <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
+          <div className="backdrop-blur-xl bg-white/60 rounded-3xl border border-white/40 shadow-xl p-6">
             <div className="flex items-center justify-between mb-6">
-              <h3 className="text-lg font-semibold text-gray-900">Applications by Stage</h3>
-              {error && <div className="text-sm text-red-600">{error}</div>}
+              <h3 className="text-xl font-bold text-slate-900">Applications by Stage</h3>
+              {error && <div className="text-sm text-red-600 font-semibold">{error}</div>}
             </div>
             
             {loading ? (
@@ -283,9 +287,9 @@ export default function RecruitmentPage() {
           </div>
 
           {/* Pie Chart */}
-          <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
+          <div className="backdrop-blur-xl bg-white/60 rounded-3xl border border-white/40 shadow-xl p-6">
             <div className="flex items-center justify-between mb-6">
-              <h3 className="text-lg font-semibold text-gray-900">Stage Distribution</h3>
+              <h3 className="text-xl font-bold text-slate-900">Stage Distribution</h3>
             </div>
             
             {loading ? (

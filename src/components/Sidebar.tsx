@@ -287,7 +287,7 @@ export default function Sidebar() {
 
       {/* Sidebar container */}
       <aside
-        className={`fixed left-0 top-0 z-50 flex h-screen flex-col rounded-r-3xl glass-strong ring-1 ring-white/20 transition-transform duration-200 md:translate-x-0 ${
+        className={`fixed left-0 top-0 z-50 flex h-screen flex-col rounded-r-3xl backdrop-blur-2xl bg-gradient-to-b from-violet-200/90 via-white/60 to-blue-200/90 border border-white/70 shadow-2xl ring-1 ring-violet-200/60 transition-transform duration-200 md:translate-x-0 ${
           mobileOpen ? "translate-x-0" : "-translate-x-full"
         } md:transform-none`}
       >
@@ -306,15 +306,15 @@ export default function Sidebar() {
               alt="Nexora HCM"
               width={48}
               height={48}
-              className="rounded-lg"
+              className="rounded-xl shadow-lg ring-1 ring-violet-200/60"
               priority
             />
             {expanded && (
               <div className="flex flex-col">
-                <span className="text-base font-semibold tracking-wide text-gray-900">
+                <span className="text-base font-semibold tracking-wide text-slate-900">
                   NEXORA
                 </span>
-                <span className="text-xs text-gray-500 -mt-0.5">HCM</span>
+                <span className="text-xs text-violet-500 -mt-0.5 font-medium">Admin Portal</span>
               </div>
             )}
           </div>
@@ -322,13 +322,13 @@ export default function Sidebar() {
           {/* Functional Search */}
           <div className="px-3">
             <div
-              className={`flex items-center rounded-full border transition-colors ${
-                searchFocused ? "border-violet-300 bg-white" : "border-gray-200 bg-gray-50"
+              className={`flex items-center rounded-2xl border transition-colors shadow-sm ${
+                searchFocused ? "border-violet-300 bg-white/80" : "border-violet-100 bg-white/60"
               } ${expanded ? "" : "justify-center"}`}
             >
               <svg
                 viewBox="0 0 24 24"
-                className={`h-4 w-4 ml-3 ${searchFocused ? "text-violet-500" : "text-gray-400"}`}
+                className={`h-4 w-4 ml-3 ${searchFocused ? "text-violet-500" : "text-slate-400"}`}
                 fill="none"
                 stroke="currentColor"
                 strokeWidth="1.8"
@@ -344,15 +344,15 @@ export default function Sidebar() {
                   onChange={(e) => setSearchQuery(e.target.value)}
                   onFocus={() => setSearchFocused(true)}
                   onBlur={() => setSearchFocused(false)}
-                  className="flex-1 bg-transparent px-2 py-2 text-sm text-gray-700 placeholder-gray-500 outline-none"
+                  className="flex-1 bg-transparent px-2 py-2 text-sm text-slate-700 placeholder-slate-400 outline-none"
                 />
               )}
               {expanded && searchQuery && (
                 <button
                   onClick={() => setSearchQuery("")}
-                  className="mr-2 rounded-full p-1 hover:bg-gray-200"
+                  className="mr-2 rounded-full p-1 hover:bg-violet-100"
                 >
-                  <svg viewBox="0 0 24 24" className="h-3 w-3 text-gray-400" fill="currentColor">
+                  <svg viewBox="0 0 24 24" className="h-3 w-3 text-slate-400" fill="currentColor">
                     <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
                   </svg>
                 </button>
@@ -361,22 +361,22 @@ export default function Sidebar() {
           </div>
 
           {/* Nav */}
-          <nav className="mt-3 flex-1 space-y-1 px-2">
+          <nav className="mt-4 flex-1 space-y-1.5 px-2">
             {filteredNavItems.length > 0 ? (
               filteredNavItems.map((item, idx) => {
                 const active = idx === activeIndex;
                 return (
                   <Link key={item.href} href={item.href} className="block">
                     <div
-                      className={`flex items-center gap-3 rounded-full px-3 py-2 transition-all duration-200 ${
+                      className={`flex items-center gap-3 rounded-2xl px-3 py-2 transition-all duration-200 ${
                         active
-                          ? "bg-gradient-to-r from-indigo-600 to-violet-600 text-white shadow-lg"
-                          : "hover:bg-gray-100 hover:scale-105 text-gray-700"
+                          ? "bg-gradient-to-r from-violet-600 to-blue-600 text-white shadow-lg"
+                          : "hover:bg-violet-50 hover:scale-[1.03] text-slate-700"
                       } ${expanded ? "" : "justify-center"}`}
                     >
                       {item.icon(active)}
                       {expanded && (
-                        <span className={`text-sm font-medium ${active ? "text-white" : ""}`}>
+                        <span className={`text-sm font-semibold ${active ? "text-white" : ""}`}>
                           {item.label}
                         </span>
                       )}
@@ -387,7 +387,7 @@ export default function Sidebar() {
             ) : (
               expanded && searchQuery && (
                 <div className="px-3 py-4 text-center">
-                  <div className="text-gray-400 text-sm">
+                  <div className="text-slate-400 text-sm">
                     <svg viewBox="0 0 24 24" className="h-8 w-8 mx-auto mb-2 text-gray-300" fill="none" stroke="currentColor">
                       <circle cx="11" cy="11" r="8"/>
                       <path d="M21 21l-4.35-4.35"/>
@@ -402,14 +402,15 @@ export default function Sidebar() {
           {/* Keyboard shortcuts hint and version */}
           <div className="mb-4 mt-auto px-3">
             {expanded && (
-              <div className="space-y-1">
-                <div className="flex items-center justify-between text-[10px] text-gray-400">
+              <div className="space-y-2 rounded-2xl border border-violet-100 bg-white/60 p-3 shadow-sm">
+                <div className="flex items-center justify-between text-[10px] text-slate-500">
                   <span>⌘K to search</span>
                   <span>1-12 for quick nav</span>
                 </div>
                 <div className="text-center">
-                  <span className="text-[11px] text-gray-400">v1.0</span>
+                  <span className="text-[11px] text-slate-500">v1.0.0</span>
                 </div>
+                <div className="text-center text-[10px] text-violet-500 font-medium">Nexora HCM</div>
               </div>
             )}
           </div>
@@ -418,7 +419,7 @@ export default function Sidebar() {
           <button
             type="button"
             onClick={() => setExpanded((s) => !s)}
-            className="absolute right-[-10px] top-1/2 -translate-y-1/2 hidden h-8 w-8 items-center justify-center rounded-full bg-violet-600 text-white shadow-lg ring-2 ring-white z-50 md:inline-flex hover:scale-105 transition"
+            className="absolute right-[-10px] top-1/2 -translate-y-1/2 hidden h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-violet-600 to-blue-600 text-white shadow-lg ring-2 ring-white z-50 md:inline-flex hover:scale-105 transition"
             aria-label="Toggle sidebar"
             title="Toggle sidebar"
           >
@@ -431,7 +432,7 @@ export default function Sidebar() {
           <button
             type="button"
             onClick={() => setMobileOpen((o) => !o)}
-            className="absolute right-[-10px] top-28 inline-flex h-8 w-8 items-center justify-center rounded-full bg-violet-600 text-white shadow-lg ring-2 ring-white z-50 md:hidden hover:scale-105 transition"
+            className="absolute right-[-10px] top-28 inline-flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-violet-600 to-blue-600 text-white shadow-lg ring-2 ring-white z-50 md:hidden hover:scale-105 transition"
             aria-label="Open menu"
           >
             <svg viewBox="0 0 24 24" className="h-4 w-4" fill="currentColor">
