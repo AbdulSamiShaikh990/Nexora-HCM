@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/db";
-import bcrypt from "bcryptjs";
 
 // Helper to check if user is admin
 async function isAdmin(email: string): Promise<boolean> {
@@ -11,6 +10,51 @@ async function isAdmin(email: string): Promise<boolean> {
     select: { role: true },
   });
   return user?.role === "ADMIN";
+}
+
+type AdminSettings = {
+  timezone: string;
+  dateFormat: string;
+  workingDays: number[];
+  workingHoursStart: string;
+  workingHoursEnd: string;
+  defaultLeaveBalance: number;
+  probationPeriod: number;
+  notifications: {
+    emailNotifications: boolean;
+    leaveRequestAlerts: boolean;
+    attendanceAlerts: boolean;
+    payrollNotifications: boolean;
+    performanceReminders: boolean;
+    birthdayWishes: boolean;
+  };
+};
+
+const defaultSettings: AdminSettings = {
+  timezone: "Asia/Karachi",
+  dateFormat: "DD/MM/YYYY",
+  workingDays: [1, 2, 3, 4, 5],
+  workingHoursStart: "09:00",
+  workingHoursEnd: "18:00",
+  defaultLeaveBalance: 15,
+  probationPeriod: 3,
+  notifications: {
+    emailNotifications: true,
+    leaveRequestAlerts: true,
+    attendanceAlerts: true,
+    payrollNotifications: true,
+    performanceReminders: true,
+    birthdayWishes: true,
+  },
+};
+
+const globalForSettings = globalThis as unknown as {
+  __adminSettings?: Map<string, AdminSettings>;
+};
+
+const settingsStore = globalForSettings.__adminSettings ?? new Map<string, AdminSettings>();
+if (!globalForSettings.__adminSettings) {
+  globalForSettings.__adminSettings = settingsStore;
 }
 
 // GET - Fetch admin profile and settings
@@ -27,7 +71,6 @@ export async function GET() {
       return NextResponse.json({ error: "Forbidden - Admin access required" }, { status: 403 });
     }
 
-    // Get user data
     const user = await prisma.user.findUnique({
       where: { email: session.user.email },
       select: {
@@ -42,64 +85,18 @@ export async function GET() {
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
-    // Get employee data if exists (admin might also have employee record)
-    const employee = await prisma.employee.findFirst({
-      where: { email: session.user.email },
-      select: {
-        id: true,
-        firstName: true,
-        lastName: true,
-        phone: true,
-        department: true,
-        jobTitle: true,
-        location: true,
-      },
-    });
-
-    // Get system stats for admin dashboard settings
-    const [totalEmployees, totalUsers, departments] = await Promise.all([
-      prisma.employee.count(),
-      prisma.user.count(),
-      prisma.employee.groupBy({
-        by: ["department"],
-        _count: { department: true },
-      }),
-    ]);
+    const storedSettings = settingsStore.get(session.user.email) ?? defaultSettings;
 
     return NextResponse.json({
       success: true,
       data: {
-        profile: employee ? {
-          id: employee.id,
-          firstName: employee.firstName,
-          lastName: employee.lastName,
-          phone: employee.phone || "",
-          department: employee.department,
-          jobTitle: employee.jobTitle,
-          location: employee.location || "",
-        } : {
+        admin: {
           id: user.id,
-          firstName: user.name?.split(" ")[0] || "",
-          lastName: user.name?.split(" ").slice(1).join(" ") || "",
-          phone: "",
-          department: "Administration",
-          jobTitle: "System Administrator",
-          location: "",
-        },
-        user: {
-          id: user.id,
-          name: user.name,
+          name: user.name || "Admin User",
           email: user.email,
           role: user.role,
         },
-        systemStats: {
-          totalEmployees,
-          totalUsers,
-          departments: departments.map((d) => ({
-            name: d.department,
-            count: d._count.department,
-          })),
-        },
+        settings: storedSettings,
       },
     });
   } catch (error) {
@@ -111,7 +108,7 @@ export async function GET() {
   }
 }
 
-// PUT - Update admin profile
+// PUT - Update admin settings
 export async function PUT(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
@@ -126,146 +123,78 @@ export async function PUT(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { firstName, lastName, phone, location } = body;
+    const {
+      timezone,
+      dateFormat,
+      workingDays,
+      workingHoursStart,
+      workingHoursEnd,
+      defaultLeaveBalance,
+      probationPeriod,
+      notifications,
+    } = body || {};
 
-    // Validate required fields
-    if (!firstName || !lastName) {
-      return NextResponse.json(
-        { error: "First name and last name are required" },
-        { status: 400 }
-      );
-    }
-
-    // Update User name
-    await prisma.user.update({
-      where: { email: session.user.email },
-      data: {
-        name: `${firstName.trim()} ${lastName.trim()}`,
+    const sanitizedSettings: AdminSettings = {
+      timezone: typeof timezone === "string" && timezone ? timezone : defaultSettings.timezone,
+      dateFormat: typeof dateFormat === "string" && dateFormat ? dateFormat : defaultSettings.dateFormat,
+      workingDays: Array.isArray(workingDays)
+        ? workingDays.filter((d) => Number.isInteger(d) && d >= 0 && d <= 6)
+        : defaultSettings.workingDays,
+      workingHoursStart:
+        typeof workingHoursStart === "string" && workingHoursStart
+          ? workingHoursStart
+          : defaultSettings.workingHoursStart,
+      workingHoursEnd:
+        typeof workingHoursEnd === "string" && workingHoursEnd
+          ? workingHoursEnd
+          : defaultSettings.workingHoursEnd,
+      defaultLeaveBalance:
+        typeof defaultLeaveBalance === "number" && defaultLeaveBalance >= 0
+          ? defaultLeaveBalance
+          : defaultSettings.defaultLeaveBalance,
+      probationPeriod:
+        typeof probationPeriod === "number" && probationPeriod >= 0
+          ? probationPeriod
+          : defaultSettings.probationPeriod,
+      notifications: {
+        emailNotifications:
+          typeof notifications?.emailNotifications === "boolean"
+            ? notifications.emailNotifications
+            : defaultSettings.notifications.emailNotifications,
+        leaveRequestAlerts:
+          typeof notifications?.leaveRequestAlerts === "boolean"
+            ? notifications.leaveRequestAlerts
+            : defaultSettings.notifications.leaveRequestAlerts,
+        attendanceAlerts:
+          typeof notifications?.attendanceAlerts === "boolean"
+            ? notifications.attendanceAlerts
+            : defaultSettings.notifications.attendanceAlerts,
+        payrollNotifications:
+          typeof notifications?.payrollNotifications === "boolean"
+            ? notifications.payrollNotifications
+            : defaultSettings.notifications.payrollNotifications,
+        performanceReminders:
+          typeof notifications?.performanceReminders === "boolean"
+            ? notifications.performanceReminders
+            : defaultSettings.notifications.performanceReminders,
+        birthdayWishes:
+          typeof notifications?.birthdayWishes === "boolean"
+            ? notifications.birthdayWishes
+            : defaultSettings.notifications.birthdayWishes,
       },
-    });
+    };
 
-    // Update employee record if exists
-    const employee = await prisma.employee.findFirst({
-      where: { email: session.user.email },
-    });
-
-    if (employee) {
-      await prisma.employee.update({
-        where: { id: employee.id },
-        data: {
-          firstName: firstName.trim(),
-          lastName: lastName.trim(),
-          phone: phone?.trim() || null,
-          location: location?.trim() || null,
-          updatedAt: new Date(),
-        },
-      });
-    }
+    settingsStore.set(session.user.email, sanitizedSettings);
 
     return NextResponse.json({
       success: true,
-      message: "Profile updated successfully",
+      message: "Settings updated successfully",
+      data: sanitizedSettings,
     });
   } catch (error) {
-    console.error("Error updating admin profile:", error);
+    console.error("Error updating admin settings:", error);
     return NextResponse.json(
-      { error: "Failed to update profile" },
-      { status: 500 }
-    );
-  }
-}
-
-// PATCH - Update admin password
-export async function PATCH(request: NextRequest) {
-  try {
-    const session = await getServerSession(authOptions);
-    
-    if (!session?.user?.email) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    // Check admin role
-    if (!(await isAdmin(session.user.email))) {
-      return NextResponse.json({ error: "Forbidden - Admin access required" }, { status: 403 });
-    }
-
-    const body = await request.json();
-    const { currentPassword, newPassword, confirmPassword } = body;
-
-    // Validate all fields are provided
-    if (!currentPassword || !newPassword || !confirmPassword) {
-      return NextResponse.json(
-        { error: "All password fields are required" },
-        { status: 400 }
-      );
-    }
-
-    // Check if new passwords match
-    if (newPassword !== confirmPassword) {
-      return NextResponse.json(
-        { error: "New passwords do not match" },
-        { status: 400 }
-      );
-    }
-
-    // Password strength validation
-    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
-    if (!passwordRegex.test(newPassword)) {
-      return NextResponse.json(
-        { 
-          error: "Password must be at least 8 characters and include uppercase, lowercase, number, and special character" 
-        },
-        { status: 400 }
-      );
-    }
-
-    // Find user
-    const user = await prisma.user.findUnique({
-      where: { email: session.user.email },
-    });
-
-    if (!user || !user.password) {
-      return NextResponse.json(
-        { error: "User not found or password not set" },
-        { status: 404 }
-      );
-    }
-
-    // Verify current password
-    const isCurrentPasswordValid = await bcrypt.compare(currentPassword, user.password);
-    if (!isCurrentPasswordValid) {
-      return NextResponse.json(
-        { error: "Current password is incorrect" },
-        { status: 400 }
-      );
-    }
-
-    // Check if new password is same as current
-    const isSamePassword = await bcrypt.compare(newPassword, user.password);
-    if (isSamePassword) {
-      return NextResponse.json(
-        { error: "New password cannot be the same as current password" },
-        { status: 400 }
-      );
-    }
-
-    // Hash new password
-    const hashedPassword = await bcrypt.hash(newPassword, 12);
-
-    // Update password
-    await prisma.user.update({
-      where: { id: user.id },
-      data: { password: hashedPassword },
-    });
-
-    return NextResponse.json({
-      success: true,
-      message: "Password updated successfully",
-    });
-  } catch (error) {
-    console.error("Error updating admin password:", error);
-    return NextResponse.json(
-      { error: "Failed to update password" },
+      { error: "Failed to update settings" },
       { status: 500 }
     );
   }
