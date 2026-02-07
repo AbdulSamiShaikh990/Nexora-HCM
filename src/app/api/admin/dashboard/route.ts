@@ -103,36 +103,43 @@ export async function GET(request: Request) {
     });
 
     // 2. LEAVES STATS
-    const leavesToday = await prisma.leave.findMany({
+    // Get all approved leaves that overlap with today
+    const allLeavesToday = await prisma.leave.findMany({
       where: {
         startDate: { lte: todayEndUTC },
         endDate: { gte: todayStartUTC },
-        status: "Approved"
+        status: { equals: "Approved", mode: "insensitive" }
       },
       include: {
         employee: {
-          select: { firstName: true, lastName: true, department: true }
+          select: { firstName: true, lastName: true, department: true, id: true }
         }
       }
     });
 
+    // Get unique employees on leave today 
+    const uniqueEmployeeIds = [...new Set(allLeavesToday.map(leave => leave.employeeId))];
+    const leavesToday = allLeavesToday.filter((leave, index, self) => 
+      index === self.findIndex(l => l.employeeId === leave.employeeId)
+    );
+
     const pendingLeaves = await prisma.leave.count({
       where: {
-        status: "Pending",
+        status: { equals: "Pending", mode: "insensitive" },
         startDate: { gte: currentStart, lte: currentEnd }
       }
     });
 
     const approvedLeaves = await prisma.leave.count({
       where: {
-        status: "Approved",
+        status: { equals: "Approved", mode: "insensitive" },
         startDate: { gte: currentStart, lte: currentEnd }
       }
     });
 
     const rejectedLeaves = await prisma.leave.count({
       where: {
-        status: "Rejected",
+        status: { equals: "Rejected", mode: "insensitive" },
         startDate: { gte: currentStart, lte: currentEnd }
       }
     });
@@ -143,7 +150,7 @@ export async function GET(request: Request) {
       _count: true,
       where: {
         startDate: { gte: currentStart, lte: currentEnd },
-        status: { in: ["Approved", "Pending"] }
+        status: { in: ["Approved", "Pending", "approved", "pending"] }
       }
     });
 
