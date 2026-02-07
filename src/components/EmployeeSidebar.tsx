@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
@@ -14,6 +14,22 @@ export default function EmployeeSidebar({ isCollapsed, setIsCollapsed }: Employe
   const pathname = usePathname();
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [sentimentEnabled, setSentimentEnabled] = useState(false);
+
+  useEffect(() => {
+    const fetchSentimentConfig = async () => {
+      try {
+        const res = await fetch("/api/sentiment/employee");
+        if (!res.ok) return;
+        const data = await res.json();
+        setSentimentEnabled(Boolean(data?.enabled));
+      } catch {
+        setSentimentEnabled(false);
+      }
+    };
+
+    fetchSentimentConfig();
+  }, []);
 
   const menuItems = [
     {
@@ -70,6 +86,19 @@ export default function EmployeeSidebar({ isCollapsed, setIsCollapsed }: Employe
         </svg>
       ),
     },
+    ...(sentimentEnabled
+      ? [
+          {
+            name: "Sentiment",
+            path: "/employee/sentiment",
+            icon: (
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 9h.01M15 9h.01M9.5 14a3.5 3.5 0 005 0M12 3a9 9 0 100 18 9 9 0 000-18z" />
+              </svg>
+            ),
+          },
+        ]
+      : []),
     {
       name: "Settings",
       path: "/employee/settings",

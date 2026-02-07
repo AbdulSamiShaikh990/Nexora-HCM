@@ -366,3 +366,20 @@ model Task {
   @@index([status])
   @@index([dueDate])
 }
+
+// Sentiment Analysis Model
+model SentimentResponse {
+  id              Int      @id @default(autoincrement())
+  employeeId      Int
+  employeeName    String
+  employeeEmail   String
+  text            String   // The feedback/text submitted
+  sentimentLabel  String   // positive | negative | neutral
+  confidenceScore Float    // 0-1 confidence score
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([employeeId])
+  @@index([sentimentLabel])
+  @@index([createdAt])
+}
