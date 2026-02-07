@@ -233,6 +233,7 @@ export default function Page() {
 
   const COLORS = {
     primary: ['#8b5cf6', '#7c3aed', '#6d28d9', '#5b21b6'],
+    leaves: ['#f97316', '#0ea5e9', '#22c55e', '#a855f7', '#ef4444', '#f59e0b'],
     success: ['#10b981', '#059669', '#047857', '#065f46'],
     warning: ['#f59e0b', '#d97706', '#b45309', '#92400e'],
     danger: ['#ef4444', '#dc2626', '#b91c1c', '#991b1b'],
@@ -768,7 +769,7 @@ export default function Page() {
                   dataKey="count"
                 >
                   {data.stats.leaves.byType.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={COLORS.primary[index % COLORS.primary.length]} />
+                    <Cell key={`cell-${index}`} fill={COLORS.leaves[index % COLORS.leaves.length]} />
                   ))}
                 </Pie>
                 <Tooltip

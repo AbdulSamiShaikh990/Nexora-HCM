@@ -11,6 +11,18 @@ export async function GET(request: Request) {
     const now = new Date();
     const currentMonth = now.getMonth();
     const currentYear = now.getFullYear();
+
+    // Pakistan timezone helpers (UTC+5)
+    const pakistanOffset = 5 * 60 * 60 * 1000; // 5 hours in milliseconds
+    const nowPak = new Date(now.getTime() + pakistanOffset);
+    const todayPakistan = new Date(Date.UTC(
+      nowPak.getUTCFullYear(),
+      nowPak.getUTCMonth(),
+      nowPak.getUTCDate(),
+      0, 0, 0, 0
+    ));
+    const todayStartUTC = new Date(todayPakistan.getTime() - pakistanOffset);
+    const todayEndUTC = new Date(todayStartUTC.getTime() + (24 * 60 * 60 * 1000) - 1);
     
     // Calculate date ranges
     const getDateRange = (filter: string) => {
@@ -93,9 +105,9 @@ export async function GET(request: Request) {
     // 2. LEAVES STATS
     const leavesToday = await prisma.leave.findMany({
       where: {
-        startDate: { lte: now },
-        endDate: { gte: now },
-        status: { in: ["Approved", "Pending"] }
+        startDate: { lte: todayEndUTC },
+        endDate: { gte: todayStartUTC },
+        status: "Approved"
       },
       include: {
         employee: {
@@ -192,21 +204,6 @@ export async function GET(request: Request) {
       : 0;
 
     // 4. ATTENDANCE STATS
-    // Pakistan timezone offset (UTC+5)
-    const pakistanOffset = 5 * 60 * 60 * 1000; // 5 hours in milliseconds
-    
-    // Get today's date in Pakistan timezone
-    const nowPak = new Date(new Date().getTime() + pakistanOffset);
-    const todayPakistan = new Date(Date.UTC(
-      nowPak.getUTCFullYear(),
-      nowPak.getUTCMonth(),
-      nowPak.getUTCDate(),
-      0, 0, 0, 0
-    ));
-    
-    // Convert Pakistan midnight to UTC for querying
-    const todayStartUTC = new Date(todayPakistan.getTime() - pakistanOffset);
-    const todayEndUTC = new Date(todayStartUTC.getTime() + (24 * 60 * 60 * 1000) - 1);
     
     const todayAttendance = await prisma.attendance.findMany({
       where: {
