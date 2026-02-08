@@ -170,7 +170,7 @@ export default function SentimentPage() {
                 type="datetime-local"
                 value={scheduleStart}
                 onChange={(e) => setScheduleStart(e.target.value)}
-                className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm focus:border-indigo-400 focus:ring-2 focus:ring-indigo-200"
+                className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-indigo-400 focus:ring-2 focus:ring-indigo-200"
               />
             </div>
             <div className="flex flex-col gap-1">
@@ -180,7 +180,7 @@ export default function SentimentPage() {
                 min={5}
                 value={scheduleDuration}
                 onChange={(e) => setScheduleDuration(Number(e.target.value))}
-                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm focus:border-indigo-400 focus:ring-2 focus:ring-indigo-200"
+                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-indigo-400 focus:ring-2 focus:ring-indigo-200"
               />
             </div>
             <div className="flex items-end">
@@ -277,7 +277,7 @@ export default function SentimentPage() {
           <select
             value={filterSentiment}
             onChange={(e) => setFilterSentiment(e.target.value)}
-            className="rounded-xl border border-slate-200 bg-white/80 px-3 py-2 text-sm focus:border-indigo-400 focus:ring-2 focus:ring-indigo-200"
+            className="rounded-xl border border-slate-200 bg-white/80 px-3 py-2 text-sm text-slate-900 focus:border-indigo-400 focus:ring-2 focus:ring-indigo-200"
           >
             <option value="all">All</option>
             <option value="positive">Positive</option>

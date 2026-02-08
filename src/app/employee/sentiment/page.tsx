@@ -202,7 +202,7 @@ export default function EmployeeSentimentPage() {
             <textarea
               id="text"
               rows={6}
-              className="mt-2 block w-full rounded-xl border border-orange-200/70 bg-white/70 px-4 py-3 shadow-sm focus:border-orange-400 focus:ring-2 focus:ring-orange-200 transition"
+              className="mt-2 block w-full rounded-xl border border-orange-200/70 bg-white/70 px-4 py-3 text-slate-900 placeholder:text-slate-400 shadow-sm focus:border-orange-400 focus:ring-2 focus:ring-orange-200 transition"
               placeholder="Share your thoughts about work environment, team collaboration, management, or anything else on your mind..."
               value={formData.text}
               onChange={(e) => setFormData(prev => ({ ...prev, text: e.target.value }))}
