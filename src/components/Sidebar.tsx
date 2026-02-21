@@ -129,6 +129,20 @@ const Icons = {
       <path d="M8 15s2 2 4 2 4-2 4-2" />
     </svg>
   ),
+  attrition: (a: boolean) => (
+    <svg
+      viewBox="0 0 24 24"
+      className={`h-5 w-5 ${a ? "text-white" : "text-gray-500"}`}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+    >
+      <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+      <circle cx="9" cy="7" r="4" />
+      <path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" />
+      <line x1="17" y1="11" x2="17" y2="17" />
+    </svg>
+  ),
   analytics: (a: boolean) => (
     <svg
       viewBox="0 0 24 24"
@@ -187,6 +201,7 @@ const navItems: NavItem[] = [
   { label: "Performance", href: "/admin/performance", icon: Icons.performance },
   { label: "Career Growth", href: "/admin/career-growth", icon: Icons.career },
   { label: "Sentiment Analysis", href: "/admin/sentiment", icon: Icons.sentiment },
+  { label: "Attrition", href: "/admin/attrition", icon: Icons.attrition },
   { label: "Task Management", href: "/admin/task", icon: Icons.task },
   { label: "Notifications", href: "/admin/notifications", icon: (a: boolean) => (
     <svg
