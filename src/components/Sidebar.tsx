@@ -199,7 +199,6 @@ const navItems: NavItem[] = [
   { label: "Payroll", href: "/admin/payroll", icon: Icons.payroll },
   { label: "Recruitment", href: "/admin/recruitment", icon: Icons.recruitment },
   { label: "Performance", href: "/admin/performance", icon: Icons.performance },
-  { label: "Career Growth", href: "/admin/career-growth", icon: Icons.career },
   { label: "Sentiment Analysis", href: "/admin/sentiment", icon: Icons.sentiment },
   { label: "Attrition", href: "/admin/attrition", icon: Icons.attrition },
   { label: "Task Management", href: "/admin/task", icon: Icons.task },
@@ -214,7 +213,6 @@ const navItems: NavItem[] = [
       <path d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
     </svg>
   ) },
-  { label: "AI Analytics", href: "/admin/analytics", icon: Icons.analytics },
   { label: "AI Assistant", href: "/admin/ai-assistant", icon: Icons.assistant },
   { label: "Settings", href: "/admin/settings", icon: Icons.settings },
 ];
