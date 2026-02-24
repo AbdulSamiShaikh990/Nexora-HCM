@@ -83,6 +83,86 @@ export async function POST(req: Request) {
 
     console.log(`✅ Performance ratings calculated for ${performanceMap.size} employees`);
 
+    // Department mapping function - Flask API specific departments
+    const mapDepartment = (dept: string): string => {
+      const deptLower = (dept || '').toLowerCase();
+      
+      // Map to Research & Development
+      if (deptLower.includes('developer') || deptLower.includes('dev') || 
+          deptLower.includes('engineer') || deptLower.includes('it') || 
+          deptLower.includes('tech') || deptLower.includes('research')) {
+        return 'Research & Development';
+      }
+      
+      // Map to Sales
+      if (deptLower.includes('sales') || deptLower.includes('marketing') || 
+          deptLower.includes('business')) {
+        return 'Sales';
+      }
+      
+      // Map to Human Resources
+      if (deptLower.includes('hr') || deptLower.includes('human') || 
+          deptLower.includes('admin') || deptLower.includes('operations')) {
+        return 'Human Resources';
+      }
+      
+      // Default fallback
+      return 'Research & Development';
+    };
+
+    // Job title mapping - Flask API supported titles:
+    // 'Healthcare Representative', 'Human Resources', 'Laboratory Technician',
+    // 'Manager', 'Manufacturing Director', 'Research Director', 
+    // 'Research Scientist', 'Sales Executive', 'Sales Representative'
+    const mapJobTitle = (title: string, department: string): string => {
+      const titleLower = (title || '').toLowerCase();
+      
+      // Manager/Director level
+      if (titleLower.includes('director') || titleLower.includes('head') || titleLower.includes('chief') || titleLower.includes('vp')) {
+        if (department === 'Sales') return 'Manufacturing Director';
+        if (department === 'Human Resources') return 'Manufacturing Director';
+        return 'Research Director';
+      }
+      if (titleLower.includes('manager') || titleLower.includes('lead') || titleLower.includes('supervisor')) {
+        return 'Manager';
+      }
+      
+      // Senior/Developer/Engineer → Research Scientist
+      if (titleLower.includes('senior') || titleLower.includes('developer') || 
+          titleLower.includes('engineer') || titleLower.includes('architect') ||
+          titleLower.includes('scientist')) {
+        return 'Research Scientist';
+      }
+      
+      // Junior/Intern/Technician
+      if (titleLower.includes('junior') || titleLower.includes('intern') || 
+          titleLower.includes('trainee') || titleLower.includes('technician') ||
+          titleLower.includes('lab')) {
+        return 'Laboratory Technician';
+      }
+      
+      // Sales roles
+      if (titleLower.includes('sales') || titleLower.includes('account')) {
+        if (titleLower.includes('rep')) return 'Sales Representative';
+        return 'Sales Executive';
+      }
+      
+      // HR roles
+      if (titleLower.includes('hr') || titleLower.includes('human') || titleLower.includes('recruit')) {
+        return 'Human Resources';
+      }
+      
+      // Healthcare
+      if (titleLower.includes('health') || titleLower.includes('medical') || titleLower.includes('nurse')) {
+        return 'Healthcare Representative';
+      }
+      
+      // Default based on mapped department
+      if (department === 'Sales') return 'Sales Executive';
+      if (department === 'Human Resources') return 'Human Resources';
+      return 'Research Scientist';
+    };
+
     // Step 3: Flask API format mein convert karo (4 fields only)
     const employeeData = employees.map(emp => {
       // Calculate years at company
@@ -90,20 +170,25 @@ export async function POST(req: Request) {
         (Date.now() - new Date(emp.joinDate || Date.now()).getTime()) / (1000 * 60 * 60 * 24 * 365)
       );
 
+      const mappedDept = mapDepartment(emp.department);
       return {
         employee_id: emp.id.toString(),
         employee_name: `${emp.firstName} ${emp.lastName}`,
         salary: emp.salary || 50000,
         performanceRating: performanceMap.get(emp.id) || 3,
-        department: emp.department,
-        jobTitle: emp.jobTitle,
+        department: mappedDept,
+        jobTitle: mapJobTitle(emp.jobTitle, mappedDept),
       };
     });
 
     // Step 3: Flask Attrition API ko call karo
     console.log('📤 Sending data to Flask API:', employeeData);
     
-    const flaskResponse = await fetch('http://192.168.100.67:5000/api/predict-attrition-batch', {
+    const attritionApiUrl = process.env.ATTRITION_API_URL;
+    if (!attritionApiUrl) {
+      throw new Error('ATTRITION_API_URL environment variable is not set');
+    }
+    const flaskResponse = await fetch(`${attritionApiUrl}/api/predict-attrition-batch`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ employees: employeeData })

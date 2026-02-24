@@ -80,7 +80,10 @@ export async function POST(request: NextRequest) {
     }
 
     // Call Flask API for sentiment analysis
-    const flaskResponse = await fetch(`${sentimentApiUrl}/analyze-sentiment`, {
+    const apiUrl = `${sentimentApiUrl}/analyze-sentiment`;
+    console.log('📤 Calling Sentiment API:', apiUrl, 'with text:', body.text);
+    
+    const flaskResponse = await fetch(apiUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -88,8 +91,12 @@ export async function POST(request: NextRequest) {
       body: JSON.stringify({ text: body.text }),
     });
 
+    console.log('📥 Sentiment Flask Response Status:', flaskResponse.status);
+
     if (!flaskResponse.ok) {
-      throw new Error(`Flask API responded with status: ${flaskResponse.status}`);
+      const errorText = await flaskResponse.text();
+      console.error('❌ Sentiment Flask API Error:', errorText);
+      throw new Error(`Flask API responded with status: ${flaskResponse.status} - ${errorText}`);
     }
 
     const flaskData = await flaskResponse.json();
