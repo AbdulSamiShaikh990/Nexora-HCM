@@ -48,7 +48,7 @@ export default function LeavePage() {
   const [leaveBalances, setLeaveBalances] = useState<LeaveBalance[]>([]);
   const [leaveRequests, setLeaveRequests] = useState<LeaveRequest[]>([]);
   const [notifications, setNotifications] = useState<LeaveNotification[]>([]);
-  const [leaveDays, setLeaveDays] = useState<Array<{date: string; status: string; type: string}>>([]);
+  const [leaveDays, setLeaveDays] = useState<Array<{date: string; status: "approved" | "pending" | "rejected" | null; type: string}>>([]);
   const [trendData, setTrendData] = useState<Array<{month: string; approved: number; pending: number; rejected: number}>>([]);
   const [chartData, setChartData] = useState<Array<{type: string; count: number; percentage: number; color: string}>>([]);
 
@@ -122,7 +122,7 @@ export default function LeavePage() {
           ]);
 
           // Prepare calendar data - expand to include all days in each leave range
-          const calendarDays: Array<{date: string; status: string; type: string}> = [];
+          const calendarDays: Array<{date: string; status: "approved" | "pending" | "rejected" | null; type: string}> = [];
           data.data.forEach((item: any) => {
             const start = new Date(item.startDate);
             const end = new Date(item.endDate);
@@ -133,7 +133,7 @@ export default function LeavePage() {
             for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
               calendarDays.push({
                 date: d.toISOString().split('T')[0],
-                status: status,
+                status: (status === "approved" || status === "pending" || status === "rejected" ? status : null) as "approved" | "pending" | "rejected" | null,
                 type: type,
               });
             }

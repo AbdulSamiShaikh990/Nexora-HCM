@@ -36,7 +36,6 @@ export async function GET(_req: Request) {
     }
 
     // Get all remote work requests with employee details
-    // @ts-expect-error - Prisma type will be available after server restart
     const remoteWorkRequests = await prisma.remoteWorkRequest.findMany({
       include: {
         employee: {
@@ -163,7 +162,6 @@ export async function PATCH(req: Request) {
 
     if (type === "remote_work") {
       // Update remote work request
-      // @ts-expect-error - Prisma type will be available after server restart
       updatedRequest = await prisma.remoteWorkRequest.update({
         where: { id: requestId },
         data: {

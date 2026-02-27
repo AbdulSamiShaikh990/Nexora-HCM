@@ -69,7 +69,7 @@ export default function ApplicationsPage() {
     });
     const data = await res.json();
     if (!res.ok) return alert(data?.error || "Failed to update");
-    setApps((prev) => prev.map((a) => (a.id === appId ? { ...a, stage: newStage } : a)));
+    setApps((prev) => prev.map((a) => (a.id === appId ? { ...a, stage: newStage as Application["stage"] } : a)));
   }
 
   async function sendFeedback(appId: string) {

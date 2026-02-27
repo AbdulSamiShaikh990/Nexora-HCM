@@ -345,7 +345,7 @@ export default function JobsPage() {
                           id: crypto.randomUUID(),
                           text: "",
                           type: "text",
-                          category: "custom"
+                          category: "behavioral"
                         };
                         setQuestions([...questions, newQuestion]);
                       }}

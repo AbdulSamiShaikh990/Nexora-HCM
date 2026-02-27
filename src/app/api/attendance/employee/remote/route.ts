@@ -23,7 +23,6 @@ export async function GET(_req: Request) {
       );
     }
 
-    // @ts-expect-error - Prisma type will be available after server restart
     const requests = await prisma.remoteWorkRequest.findMany({
       where: { employeeId: employee.id },
       orderBy: { createdAt: "desc" },
@@ -101,7 +100,6 @@ export async function POST(req: Request) {
     }
 
     // Check for overlapping requests
-    // @ts-expect-error - Prisma type will be available after server restart
     const existing = await prisma.remoteWorkRequest.findFirst({
       where: {
         employeeId: employee.id,
@@ -138,7 +136,6 @@ export async function POST(req: Request) {
       );
     }
 
-    // @ts-expect-error - Prisma type will be available after server restart
     const request = await prisma.remoteWorkRequest.create({
       data: {
         employeeId: employee.id,
