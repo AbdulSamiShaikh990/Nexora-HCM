@@ -166,6 +166,7 @@ export async function PUT(req: Request) {
       description,
       priority,
       status,
+      progress,
       dueDate,
       estimatedHours,
       assignedToId,
@@ -193,10 +194,34 @@ export async function PUT(req: Request) {
     if (description !== undefined) updateData.description = description;
     if (priority !== undefined) updateData.priority = priority;
     if (status !== undefined) updateData.status = status;
+    if (progress !== undefined) updateData.progress = Math.min(100, Math.max(0, progress));
     if (dueDate !== undefined) updateData.dueDate = new Date(dueDate);
     if (estimatedHours !== undefined) updateData.estimatedHours = estimatedHours;
     if (assignedToId !== undefined) updateData.assignedToId = assignedToId;
     if (tags !== undefined) updateData.tags = tags;
+
+    // If admin edits a completed task without explicitly setting a new status,
+    // reopen it so employee can work on updates again.
+    const hasAdminFieldUpdates = [
+      title,
+      description,
+      priority,
+      dueDate,
+      estimatedHours,
+      assignedToId,
+      tags,
+    ].some((value) => value !== undefined);
+
+    const normalizedExistingStatus = String(existingTask.status || "").trim().toLowerCase();
+
+    if (
+      status === undefined &&
+      normalizedExistingStatus === "completed" &&
+      hasAdminFieldUpdates
+    ) {
+      updateData.status = "Pending";
+      updateData.progress = 0;
+    }
 
     const task = await prisma.task.update({
       where: { id },

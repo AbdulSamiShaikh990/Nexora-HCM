@@ -235,6 +235,9 @@ export default function AdminTaskPage() {
 
     try {
       setSubmitting(true);
+      const selectedTaskStatus = String(selectedTask.status || "").trim().toLowerCase();
+      const shouldReopenTask = selectedTaskStatus === "completed";
+
       const res = await fetch("/api/task/admin", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
@@ -243,6 +246,8 @@ export default function AdminTaskPage() {
           title: formData.title || selectedTask.title,
           description: formData.description || selectedTask.description,
           priority: formData.priority || selectedTask.priority,
+          status: shouldReopenTask ? "Pending" : undefined,
+          progress: shouldReopenTask ? 0 : undefined,
           dueDate: formData.dueDate || selectedTask.dueDate,
           estimatedHours: formData.estimatedHours || selectedTask.estimatedHours,
           tags: formData.tags ? formData.tags.split(",").map((t) => t.trim()).filter((t) => t) : selectedTask.tags,
