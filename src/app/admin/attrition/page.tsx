@@ -134,7 +134,7 @@ export default function AttritionDashboard() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-6">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-3 sm:p-6">
       <div className="max-w-7xl mx-auto">
         {/* Header Section */}
         <div className="mb-8 bg-white rounded-2xl shadow-lg p-8 border border-gray-200">
@@ -368,8 +368,8 @@ export default function AttritionDashboard() {
         {predictions.length > 0 && (
           <>
             {/* Statistics Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-              <div className="bg-white p-8 rounded-2xl shadow-lg border-2 border-indigo-200 hover:border-indigo-400 transition-all duration-300 transform hover:-translate-y-1">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 sm:gap-6 mb-8">
+              <div className="bg-white p-5 sm:p-8 rounded-2xl shadow-lg border-2 border-indigo-200 hover:border-indigo-400 transition-all duration-300 transform hover:-translate-y-1">
                 <div className="flex items-center justify-between mb-4">
                   <p className="text-gray-600 text-sm font-bold uppercase tracking-wide">Total Analyzed</p>
                   <div className="p-2 bg-indigo-100 rounded-lg">
@@ -378,17 +378,17 @@ export default function AttritionDashboard() {
                     </svg>
                   </div>
                 </div>
-                <p className="text-5xl font-black text-gray-900">{stats.total}</p>
+                <p className="text-3xl sm:text-5xl font-black text-gray-900">{stats.total}</p>
                 <p className="text-xs text-gray-500 mt-3 font-medium">Employees scanned</p>
               </div>
               
-              <div className="bg-gradient-to-br from-red-50 to-red-100 p-8 rounded-2xl shadow-lg border-2 border-red-300 hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-1">
+              <div className="bg-gradient-to-br from-red-50 to-red-100 p-5 sm:p-8 rounded-2xl shadow-lg border-2 border-red-300 hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-1">
                 <div className="flex items-center justify-between mb-4">
                   <p className="text-red-700 text-sm font-bold uppercase tracking-wide flex items-center gap-2">
                     <span className="text-2xl">🔴</span> High Risk
                   </p>
                 </div>
-                <p className="text-5xl font-black text-red-700">{stats.high}</p>
+                <p className="text-3xl sm:text-5xl font-black text-red-700">{stats.high}</p>
                 <div className="mt-3 flex items-center gap-2">
                   <div className="flex-1 bg-red-200 rounded-full h-2">
                     <div 
@@ -403,13 +403,13 @@ export default function AttritionDashboard() {
                 <p className="text-xs text-red-600 mt-2 font-semibold">⚠️ Immediate attention needed</p>
               </div>
               
-              <div className="bg-gradient-to-br from-yellow-50 to-yellow-100 p-8 rounded-2xl shadow-lg border-2 border-yellow-300 hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-1">
+              <div className="bg-gradient-to-br from-yellow-50 to-yellow-100 p-5 sm:p-8 rounded-2xl shadow-lg border-2 border-yellow-300 hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-1">
                 <div className="flex items-center justify-between mb-4">
                   <p className="text-yellow-700 text-sm font-bold uppercase tracking-wide flex items-center gap-2">
                     <span className="text-2xl">🟡</span> Medium Risk
                   </p>
                 </div>
-                <p className="text-5xl font-black text-yellow-700">{stats.medium}</p>
+                <p className="text-3xl sm:text-5xl font-black text-yellow-700">{stats.medium}</p>
                 <div className="mt-3 flex items-center gap-2">
                   <div className="flex-1 bg-yellow-200 rounded-full h-2">
                     <div 
@@ -424,13 +424,13 @@ export default function AttritionDashboard() {
                 <p className="text-xs text-yellow-600 mt-2 font-semibold">📊 Monitor closely</p>
               </div>
               
-              <div className="bg-gradient-to-br from-green-50 to-green-100 p-8 rounded-2xl shadow-lg border-2 border-green-300 hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-1">
+              <div className="bg-gradient-to-br from-green-50 to-green-100 p-5 sm:p-8 rounded-2xl shadow-lg border-2 border-green-300 hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-1">
                 <div className="flex items-center justify-between mb-4">
                   <p className="text-green-700 text-sm font-bold uppercase tracking-wide flex items-center gap-2">
                     <span className="text-2xl">🟢</span> Low Risk
                   </p>
                 </div>
-                <p className="text-5xl font-black text-green-700">{stats.low}</p>
+                <p className="text-3xl sm:text-5xl font-black text-green-700">{stats.low}</p>
                 <div className="mt-3 flex items-center gap-2">
                   <div className="flex-1 bg-green-200 rounded-full h-2">
                     <div 
@@ -448,20 +448,20 @@ export default function AttritionDashboard() {
 
             {/* Predictions List */}
             <div className="space-y-6">
-              <div className="flex items-center justify-between bg-white rounded-xl p-6 shadow-md border border-gray-200">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between bg-white rounded-xl p-4 sm:p-6 shadow-md border border-gray-200">
                 <div className="flex items-center gap-3">
                   <div className="p-3 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl">
                     <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
                     </svg>
                   </div>
-                  <h2 className="text-2xl font-bold text-gray-900">
+                  <h2 className="text-lg sm:text-2xl font-bold text-gray-900">
                     📊 Detailed Risk Analysis
                   </h2>
                 </div>
                 <button
                   onClick={() => setPredictions([])}
-                  className="px-5 py-2.5 text-sm bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold rounded-lg transition-colors flex items-center gap-2 border border-gray-300"
+                  className="w-full sm:w-auto justify-center px-5 py-2.5 text-sm bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold rounded-lg transition-colors flex items-center gap-2 border border-gray-300"
                 >
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -473,7 +473,7 @@ export default function AttritionDashboard() {
               {/* High Risk Section */}
               {stats.high > 0 && (
                 <div className="bg-white rounded-lg shadow-md border-2 border-red-200 overflow-hidden">
-                  <div className="bg-red-50 px-6 py-4 border-b border-red-200">
+                  <div className="bg-red-50 px-4 sm:px-6 py-4 border-b border-red-200">
                     <h3 className="text-lg font-bold text-red-700 flex items-center gap-2">
                       <span className="text-2xl">🔴</span> High Risk Employees ({stats.high})
                     </h3>
@@ -492,7 +492,7 @@ export default function AttritionDashboard() {
               {/* Medium Risk Section */}
               {stats.medium > 0 && (
                 <div className="bg-white rounded-lg shadow-md border-2 border-yellow-200 overflow-hidden">
-                  <div className="bg-yellow-50 px-6 py-4 border-b border-yellow-200">
+                  <div className="bg-yellow-50 px-4 sm:px-6 py-4 border-b border-yellow-200">
                     <h3 className="text-lg font-bold text-yellow-700 flex items-center gap-2">
                       <span className="text-2xl">🟡</span> Medium Risk Employees ({stats.medium})
                     </h3>
@@ -511,7 +511,7 @@ export default function AttritionDashboard() {
               {/* Low Risk Section */}
               {stats.low > 0 && (
                 <div className="bg-white rounded-lg shadow-md border-2 border-green-200 overflow-hidden">
-                  <div className="bg-green-50 px-6 py-4 border-b border-green-200">
+                  <div className="bg-green-50 px-4 sm:px-6 py-4 border-b border-green-200">
                     <h3 className="text-lg font-bold text-green-700 flex items-center gap-2">
                       <span className="text-2xl">🟢</span> Low Risk Employees ({stats.low})
                     </h3>
@@ -559,48 +559,48 @@ function EmployeeCard({ prediction }: { prediction: AttritionPrediction }) {
       : 'from-green-500 to-green-600';
 
   return (
-    <div className={`bg-gradient-to-r ${riskColor} p-6 border-2 rounded-2xl hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-1`}>
-      <div className="flex justify-between items-start gap-6">
-        <div className="flex items-start gap-5 flex-1">
+    <div className={`bg-gradient-to-r ${riskColor} p-4 sm:p-6 border-2 rounded-2xl hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-1`}>
+      <div className="flex flex-col gap-4 sm:flex-row sm:justify-between sm:items-start sm:gap-6">
+        <div className="flex items-start gap-3 sm:gap-5 flex-1 min-w-0">
           {/* Avatar */}
-          <div className="flex-shrink-0 h-16 w-16 bg-white rounded-2xl flex items-center justify-center shadow-lg ring-4 ring-white/50">
-            <span className="text-indigo-600 font-black text-xl">
+          <div className="flex-shrink-0 h-12 w-12 sm:h-16 sm:w-16 bg-white rounded-xl sm:rounded-2xl flex items-center justify-center shadow-lg ring-4 ring-white/50">
+            <span className="text-indigo-600 font-black text-base sm:text-xl">
               {initials}
             </span>
           </div>
           
           {/* Employee Info */}
-          <div className="flex-1">
-            <h4 className="font-black text-gray-900 text-2xl mb-1">
+          <div className="flex-1 min-w-0">
+            <h4 className="font-black text-gray-900 text-lg sm:text-2xl mb-1 break-words">
               {employeeName}
             </h4>
-            <p className="text-gray-700 text-sm font-semibold mb-4 flex items-center gap-2">
+            <p className="text-gray-700 text-xs sm:text-sm font-semibold mb-4 flex items-center gap-2 break-words">
               <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
               </svg>
               {jobTitle}
             </p>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="flex items-center gap-3 bg-white px-4 py-3 rounded-xl shadow-md border border-gray-200">
-                <div className="p-2 bg-green-100 rounded-lg">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+              <div className="flex items-center gap-2 sm:gap-3 bg-white px-3 sm:px-4 py-3 rounded-xl shadow-md border border-gray-200">
+                <div className="p-2 bg-green-100 rounded-lg shrink-0">
                   <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
                 </div>
-                <div>
+                <div className="min-w-0">
                   <p className="text-xs text-gray-500 font-medium">Salary</p>
-                  <p className="font-black text-gray-900 text-lg">Rs {salary.toLocaleString()}</p>
+                  <p className="font-black text-gray-900 text-base sm:text-lg break-words">Rs {salary.toLocaleString()}</p>
                 </div>
               </div>
-              <div className="flex items-center gap-3 bg-white px-4 py-3 rounded-xl shadow-md border border-gray-200">
-                <div className="p-2 bg-yellow-100 rounded-lg">
+              <div className="flex items-center gap-2 sm:gap-3 bg-white px-3 sm:px-4 py-3 rounded-xl shadow-md border border-gray-200">
+                <div className="p-2 bg-yellow-100 rounded-lg shrink-0">
                   <svg className="w-5 h-5 text-yellow-600" fill="currentColor" viewBox="0 0 20 20">
                     <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
                   </svg>
                 </div>
-                <div>
+                <div className="min-w-0">
                   <p className="text-xs text-gray-500 font-medium">Performance</p>
-                  <p className="font-black text-gray-900 text-lg">{performanceRating}/5</p>
+                  <p className="font-black text-gray-900 text-base sm:text-lg">{performanceRating}/5</p>
                 </div>
               </div>
             </div>
@@ -621,9 +621,9 @@ function EmployeeCard({ prediction }: { prediction: AttritionPrediction }) {
         </div>
         
         {/* Risk Score Badge */}
-        <div className="text-center">
-          <div className={`bg-gradient-to-br ${badgeColor} px-8 py-6 rounded-2xl shadow-2xl ring-4 ring-white/50`}>
-            <p className="text-5xl font-black text-white mb-2">
+        <div className="text-center self-start sm:self-auto w-full sm:w-auto">
+          <div className={`bg-gradient-to-br ${badgeColor} px-5 sm:px-8 py-4 sm:py-6 rounded-2xl shadow-2xl ring-4 ring-white/50`}>
+            <p className="text-3xl sm:text-5xl font-black text-white mb-2">
               {riskPercentage}%
             </p>
             <p className="text-xs font-black text-white uppercase tracking-wider">
