@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { Eye, Pencil, Search, Trash2 } from "lucide-react";
 import { S } from "./styles";
 
 type Status = "Active" | "On Leave" | "Inactive";
@@ -379,31 +380,38 @@ export default function Page() {
   };
 
   return (
-    <div className="min-h-screen w-full overflow-x-hidden px-2 sm:px-4 lg:px-6 py-3 sm:py-4 lg:py-6">
-      <div className="max-w-7xl mx-auto space-y-3 sm:space-y-4 lg:space-y-6">
-      {/* Header */}
-      <div className="flex flex-col space-y-3 sm:space-y-0 sm:flex-row sm:items-center sm:justify-between gap-3">
-        <div className="min-w-0 flex-1">
-          <h1 className="text-xl sm:text-2xl lg:text-3xl font-semibold text-gray-900 tracking-tight truncate">Employee Management</h1>
-          <p className="mt-1 text-xs sm:text-sm text-gray-600">Manage your organization&apos;s workforce.</p>
+    <div className="min-h-screen relative overflow-hidden">
+      <div className="absolute inset-0 bg-gradient-to-br from-blue-600/10 via-cyan-600/10 to-teal-600/10"></div>
+      <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiM5YzkyYWMiIGZpbGwtb3BhY2l0eT0iMC4wNSI+PHBhdGggZD0iTTM2IDM0djItaDJ2LTJoLTJ6bTAtNHYyaDJ2LTJoLTJ6bTAtNHYyaDJ2LTJoLTJ6bTAtNHYyaDJ2LTJoLTJ6Ii8+PC9nPjwvZz48L3N2Zz4=')] opacity-30"></div>
+      <div className="relative z-10 w-full overflow-x-hidden px-2 sm:px-4 lg:px-6 py-3 sm:py-4 lg:py-6">
+        <div className="max-w-7xl mx-auto space-y-3 sm:space-y-4 lg:space-y-6">
+        {/* Header */}
+        <div className="backdrop-blur-xl bg-white/60 rounded-3xl border border-white/40 shadow-xl p-5 sm:p-6 lg:p-8">
+          <div className="flex flex-col space-y-3 sm:space-y-0 sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div className="min-w-0 flex-1">
+              <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold bg-gradient-to-r from-blue-600 via-cyan-600 to-teal-600 bg-clip-text text-transparent tracking-tight truncate">Employee Management</h1>
+              <p className="mt-2 text-sm text-slate-700 font-medium">Manage your organization&apos;s workforce with clarity and control.</p>
+            </div>
+            <button onClick={openAdd} className="w-full sm:w-auto flex-shrink-0 inline-flex items-center justify-center gap-2 rounded-2xl px-4 sm:px-5 py-2.5 text-sm font-semibold text-white bg-gradient-to-r from-blue-600 to-cyan-600 shadow-lg hover:brightness-110 transition-all">
+              <span className="text-base">＋</span> <span className="hidden xs:inline">Add Employee</span><span className="xs:hidden">Add</span>
+            </button>
+          </div>
         </div>
-        <button onClick={openAdd} className="w-full sm:w-auto flex-shrink-0 inline-flex items-center justify-center gap-2 rounded-xl px-3 sm:px-4 py-2 sm:py-2.5 text-sm font-medium text-white bg-gradient-to-r from-indigo-600 to-violet-600 shadow hover:brightness-110 transition-all">
-          <span className="text-base">＋</span> <span className="hidden xs:inline">Add Employee</span><span className="xs:hidden">Add</span>
-        </button>
-      </div>
 
       {/* Search & Filters */}
       <Glass className="p-3 sm:p-4 overflow-hidden">
         <div className="flex flex-col md:flex-row gap-3 md:items-center">
           <div className="relative flex-1">
             <input value={q} onChange={e=>{setQ(e.target.value); setPage(1);}} placeholder="Search employees (skills, roles, dept)…" className={S.searchInput + " pl-10 pr-3"} />
-            <span className="absolute left-3 top-2.5 text-gray-400">🔎</span>
+            <span className="absolute left-3 top-2.5 text-slate-400">
+              <Search className="h-4 w-4" />
+            </span>
           </div>
           <div className="flex flex-col sm:flex-row gap-3">
-            <select value={dept} onChange={e=>{setDept(e.target.value); setPage(1);}} className="w-full sm:w-auto rounded-xl border border-white/40 bg-white/80 backdrop-blur px-3 py-2.5 text-sm text-gray-900 min-w-0">
+            <select value={dept} onChange={e=>{setDept(e.target.value); setPage(1);}} className="w-full sm:w-auto rounded-2xl border border-white/40 bg-white/80 backdrop-blur px-3 py-2.5 text-sm text-slate-900 min-w-0">
               {departments.map(d=> <option key={d} value={d}>{d}</option>)}
             </select>
-            <select value={stat} onChange={e=>{setStat(e.target.value as "All" | Status); setPage(1);}} className="w-full sm:w-auto rounded-xl border border-white/40 bg-white/80 backdrop-blur px-3 py-2.5 text-sm text-gray-900 min-w-0">
+            <select value={stat} onChange={e=>{setStat(e.target.value as "All" | Status); setPage(1);}} className="w-full sm:w-auto rounded-2xl border border-white/40 bg-white/80 backdrop-blur px-3 py-2.5 text-sm text-slate-900 min-w-0">
               {(["All","Active","On Leave","Inactive"] as const).map((s)=> <option key={s} value={s}>{s}</option>)}
             </select>
             <button onClick={()=>setAdvOpen(v=>!v)} className={`${S.advButton} w-full sm:w-auto whitespace-nowrap`}>{advOpen?"Hide Filters":"⚙ Advanced"}</button>
@@ -439,10 +447,10 @@ export default function Page() {
 
       {/* Table */}
       <Glass>
-        <div className="p-3 sm:p-4 border-b border-white/20">
+        <div className="p-3 sm:p-4 border-b border-white/30">
           <div className="flex flex-col xs:flex-row xs:items-center xs:justify-between gap-2 mb-3">
-            <h2 className="text-sm sm:text-base font-semibold text-gray-900 tracking-wide">All Employees ({filtered.length})</h2>
-            {selected.size > 0 && <span className="text-xs text-gray-600 font-medium">Selected: {selected.size}</span>}
+            <h2 className="text-sm sm:text-base font-semibold text-slate-900 tracking-wide">All Employees ({filtered.length})</h2>
+            {selected.size > 0 && <span className="text-xs text-slate-600 font-medium">Selected: {selected.size}</span>}
           </div>
           <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 text-xs">
             <button onClick={()=>bulkStatus("Active")} disabled={selected.size===0} className="px-2 py-1.5 rounded-lg border border-emerald-300 bg-emerald-50 text-emerald-700 font-semibold hover:bg-emerald-100 disabled:opacity-40 disabled:cursor-not-allowed transition-all whitespace-nowrap text-[10px] sm:text-xs">Set Active</button>
@@ -458,7 +466,7 @@ export default function Page() {
         <div className="hidden lg:block overflow-x-auto -mx-4 sm:mx-0">
           <table className="min-w-full text-sm">
             <thead>
-              <tr className="text-left text-gray-700 uppercase tracking-wide">
+              <tr className="text-left text-slate-700 uppercase tracking-wide">
                 <th className="px-4 py-3"><input type="checkbox" onChange={(e)=>toggleSelectAll(e.target.checked)} /></th>
                 <Th label="Employee" onClick={()=>sortBy("firstName")} active={sortKey==="firstName"} dir={dir} />
                 <Th label="Job Title" onClick={()=>sortBy("jobTitle")} active={sortKey==="jobTitle"} dir={dir} />
@@ -470,26 +478,32 @@ export default function Page() {
             </thead>
             <tbody>
               {items.map(e=> (
-                <tr key={e.id} className="border-t border-white/10 hover:bg-white/70">
+                <tr key={e.id} className="border-t border-white/20 hover:bg-white/70">
                   <td className="px-4 py-3"><input type="checkbox" checked={selected.has(e.id)} onChange={(ev)=>toggleSelect(e.id, ev.target.checked)} /></td>
                   <td className="px-4 py-3 min-w-[220px]">
                     <div className="flex items-center gap-3">
-                      <div className="h-9 w-9 rounded-full bg-gradient-to-br from-indigo-200 to-violet-200 flex items-center justify-center text-xs font-semibold text-indigo-700">{e.firstName[0]}{e.lastName[0]}</div>
+                      <div className="h-9 w-9 rounded-full bg-gradient-to-br from-blue-200 to-cyan-200 flex items-center justify-center text-xs font-semibold text-blue-700">{e.firstName[0]}{e.lastName[0]}</div>
                       <div>
-                        <div className="font-medium text-gray-900">{e.firstName} {e.lastName}</div>
-                        <div className="text-gray-500">{e.email}</div>
+                        <div className="font-medium text-slate-900">{e.firstName} {e.lastName}</div>
+                        <div className="text-slate-500">{e.email}</div>
                       </div>
                     </div>
                   </td>
-                  <td className="px-4 py-3 whitespace-nowrap font-medium text-gray-800">{e.jobTitle}</td>
-                  <td className="px-4 py-3 whitespace-nowrap text-gray-900 font-medium">{e.department}</td>
+                  <td className="px-4 py-3 whitespace-nowrap font-medium text-slate-800">{e.jobTitle}</td>
+                  <td className="px-4 py-3 whitespace-nowrap text-slate-900 font-medium">{e.department}</td>
                   <td className="px-4 py-3 whitespace-nowrap"><Badge status={e.status} /></td>
-                  <td className="px-4 py-3 whitespace-nowrap text-gray-900 font-medium">{new Date(e.joinDate).toLocaleDateString()}</td>
+                  <td className="px-4 py-3 whitespace-nowrap text-slate-900 font-medium">{new Date(e.joinDate).toLocaleDateString()}</td>
                   <td className="px-4 py-3 text-right pr-6">
                     <div className="inline-flex gap-2">
-                      <IconButton title="View" onClick={()=>setView(e)}>👁️</IconButton>
-                      <IconButton title="Edit" onClick={()=>openEdit(e)}>✏️</IconButton>
-                      <IconButton title="Delete" danger onClick={()=>setConfirm(e)}>🗑️</IconButton>
+                      <IconButton title="View" onClick={()=>setView(e)}>
+                        <Eye className="h-4 w-4" />
+                      </IconButton>
+                      <IconButton title="Edit" onClick={()=>openEdit(e)}>
+                        <Pencil className="h-4 w-4" />
+                      </IconButton>
+                      <IconButton title="Delete" danger onClick={()=>setConfirm(e)}>
+                        <Trash2 className="h-4 w-4" />
+                      </IconButton>
                     </div>
                   </td>
                 </tr>
@@ -504,38 +518,44 @@ export default function Page() {
         {/* Mobile/Tablet Card View */}
         <div className="lg:hidden space-y-2 sm:space-y-3 p-2 sm:p-3 lg:p-4">
           {items.map(e=> (
-            <div key={e.id} className="bg-white/60 backdrop-blur-sm border border-white/40 rounded-xl p-3 hover:bg-white/80 transition-all overflow-hidden">
+            <div key={e.id} className="bg-white/60 backdrop-blur-sm border border-white/40 rounded-2xl p-3 hover:bg-white/80 transition-all overflow-hidden">
               <div className="flex items-start justify-between mb-2 sm:mb-3">
                 <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
                   <input type="checkbox" checked={selected.has(e.id)} onChange={(ev)=>toggleSelect(e.id, ev.target.checked)} className="flex-shrink-0 mt-1" />
-                  <div className="h-8 w-8 sm:h-10 sm:w-10 rounded-full bg-gradient-to-br from-indigo-200 to-violet-200 flex items-center justify-center text-xs sm:text-sm font-semibold text-indigo-700 flex-shrink-0">{e.firstName[0]}{e.lastName[0]}</div>
+                  <div className="h-8 w-8 sm:h-10 sm:w-10 rounded-full bg-gradient-to-br from-blue-200 to-cyan-200 flex items-center justify-center text-xs sm:text-sm font-semibold text-blue-700 flex-shrink-0">{e.firstName[0]}{e.lastName[0]}</div>
                   <div className="min-w-0 flex-1">
-                    <div className="font-semibold text-sm sm:text-base text-gray-900 truncate">{e.firstName} {e.lastName}</div>
-                    <div className="text-xs sm:text-sm text-gray-600 truncate">{e.email}</div>
+                    <div className="font-semibold text-sm sm:text-base text-slate-900 truncate">{e.firstName} {e.lastName}</div>
+                    <div className="text-xs sm:text-sm text-slate-600 truncate">{e.email}</div>
                   </div>
                 </div>
                 <div className="flex items-center gap-0.5 sm:gap-1 flex-shrink-0 ml-1">
-                  <IconButton title="View" onClick={()=>setView(e)}>👁️</IconButton>
-                  <IconButton title="Edit" onClick={()=>openEdit(e)}>✏️</IconButton>
-                  <IconButton title="Delete" danger onClick={()=>setConfirm(e)}>🗑️</IconButton>
+                  <IconButton title="View" onClick={()=>setView(e)}>
+                    <Eye className="h-4 w-4" />
+                  </IconButton>
+                  <IconButton title="Edit" onClick={()=>openEdit(e)}>
+                    <Pencil className="h-4 w-4" />
+                  </IconButton>
+                  <IconButton title="Delete" danger onClick={()=>setConfirm(e)}>
+                    <Trash2 className="h-4 w-4" />
+                  </IconButton>
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-2 text-xs sm:text-sm">
                 <div>
-                  <div className="text-[10px] sm:text-xs text-gray-500 uppercase tracking-wide">Job Title</div>
-                  <div className="font-medium text-gray-900 truncate mt-0.5">{e.jobTitle}</div>
+                  <div className="text-[10px] sm:text-xs text-slate-500 uppercase tracking-wide">Job Title</div>
+                  <div className="font-medium text-slate-900 truncate mt-0.5">{e.jobTitle}</div>
                 </div>
                 <div>
-                  <div className="text-[10px] sm:text-xs text-gray-500 uppercase tracking-wide">Department</div>
-                  <div className="font-medium text-gray-900 truncate mt-0.5">{e.department}</div>
+                  <div className="text-[10px] sm:text-xs text-slate-500 uppercase tracking-wide">Department</div>
+                  <div className="font-medium text-slate-900 truncate mt-0.5">{e.department}</div>
                 </div>
                 <div>
-                  <div className="text-[10px] sm:text-xs text-gray-500 uppercase tracking-wide">Status</div>
+                  <div className="text-[10px] sm:text-xs text-slate-500 uppercase tracking-wide">Status</div>
                   <div className="mt-0.5"><Badge status={e.status} /></div>
                 </div>
                 <div>
-                  <div className="text-[10px] sm:text-xs text-gray-500 uppercase tracking-wide">Join Date</div>
-                  <div className="font-medium text-gray-900 mt-0.5">{new Date(e.joinDate).toLocaleDateString()}</div>
+                  <div className="text-[10px] sm:text-xs text-slate-500 uppercase tracking-wide">Join Date</div>
+                  <div className="font-medium text-slate-900 mt-0.5">{new Date(e.joinDate).toLocaleDateString()}</div>
                 </div>
               </div>
             </div>
@@ -544,8 +564,8 @@ export default function Page() {
             <div className="px-4 py-12 sm:px-6 sm:py-16 text-center text-sm text-gray-500">No employees found.</div>
           )}
         </div>
-        <div className="flex flex-col sm:flex-row items-center justify-between px-3 sm:px-4 py-2 sm:py-3 border-t border-white/20 gap-2 sm:gap-3">
-          <div className="text-xs text-gray-500 order-2 sm:order-1">Page {page} of {total}</div>
+        <div className="flex flex-col sm:flex-row items-center justify-between px-3 sm:px-4 py-2 sm:py-3 border-t border-white/30 gap-2 sm:gap-3">
+          <div className="text-xs text-slate-500 order-2 sm:order-1">Page {page} of {total}</div>
           <div className="flex gap-1.5 sm:gap-2 order-1 sm:order-2">
             <button className="px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg border border-white/40 bg-white/80 hover:bg-white/90 disabled:opacity-40 text-xs sm:text-sm font-medium transition-all" disabled={page===1} onClick={()=>setPage(p=>Math.max(1,p-1))}>Previous</button>
             <button className="px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg border border-white/40 bg-white/80 hover:bg-white/90 disabled:opacity-40 text-xs sm:text-sm font-medium transition-all" disabled={page===total} onClick={()=>setPage(p=>Math.min(total,p+1))}>Next</button>
@@ -636,6 +656,7 @@ export default function Page() {
           </div>
         </Modal>
       )}
+        </div>
       </div>
     </div>
   );
