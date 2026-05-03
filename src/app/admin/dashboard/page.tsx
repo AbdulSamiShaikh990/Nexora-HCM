@@ -211,9 +211,8 @@ export default function Page() {
   };
 
   const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
+    return new Intl.NumberFormat('en-PK', {
+      style: 'decimal',
       minimumFractionDigits: 0,
       maximumFractionDigits: 0
     }).format(amount);
@@ -500,7 +499,7 @@ export default function Page() {
             </div>
             <div className="space-y-1">
               <p className="text-sm text-slate-700 font-bold">Payroll This Month</p>
-              <p className="text-4xl font-bold bg-gradient-to-r from-emerald-600 to-green-600 bg-clip-text text-transparent">{formatCurrency(data.stats.payroll.totalAmount)}</p>
+              <p className="text-4xl font-bold bg-gradient-to-r from-emerald-600 to-green-600 bg-clip-text text-transparent">PKR {formatCurrency(data.stats.payroll.totalAmount)}</p>
               <p className="text-xs text-slate-600 font-semibold">Processing in {data.stats.payroll.processingDays} days</p>
             </div>
             
@@ -955,5 +954,3 @@ export default function Page() {
     </div>
   );
 }
-
-

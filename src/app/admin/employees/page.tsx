@@ -567,8 +567,8 @@ export default function Page() {
         <div className="flex flex-col sm:flex-row items-center justify-between px-3 sm:px-4 py-2 sm:py-3 border-t border-white/30 gap-2 sm:gap-3">
           <div className="text-xs text-slate-500 order-2 sm:order-1">Page {page} of {total}</div>
           <div className="flex gap-1.5 sm:gap-2 order-1 sm:order-2">
-            <button className="px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg border border-white/40 bg-white/80 hover:bg-white/90 disabled:opacity-40 text-xs sm:text-sm font-medium transition-all" disabled={page===1} onClick={()=>setPage(p=>Math.max(1,p-1))}>Previous</button>
-            <button className="px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg border border-white/40 bg-white/80 hover:bg-white/90 disabled:opacity-40 text-xs sm:text-sm font-medium transition-all" disabled={page===total} onClick={()=>setPage(p=>Math.min(total,p+1))}>Next</button>
+            <button className="px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 disabled:opacity-45 disabled:text-slate-500 text-xs sm:text-sm font-medium transition-all" disabled={page===1} onClick={()=>setPage(p=>Math.max(1,p-1))}>Previous</button>
+            <button className="px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 disabled:opacity-45 disabled:text-slate-500 text-xs sm:text-sm font-medium transition-all" disabled={page===total} onClick={()=>setPage(p=>Math.min(total,p+1))}>Next</button>
           </div>
         </div>
       </Glass>
@@ -675,7 +675,7 @@ function Th({ label, onClick, active, dir }: { label: string; onClick: () => voi
 
 function IconButton({ title, onClick, danger, children }: { title: string; onClick: () => void; danger?: boolean; children: React.ReactNode }) {
   return (
-    <button title={title} onClick={onClick} className={`${S.iconButton} ${danger?"text-rose-600":""}`}>{children}</button>
+    <button title={title} onClick={onClick} className={`${S.iconButton} ${danger ? "text-rose-600 border-rose-200 hover:bg-rose-50" : "text-slate-700"}`}>{children}</button>
   );
 }
 
@@ -755,4 +755,3 @@ function TextArea({ label, value, onChange, rows=3 }: { label: string; value: st
     </label>
   );
 }
-

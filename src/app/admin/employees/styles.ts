@@ -24,7 +24,7 @@ export const S = {
   modalClose: "h-9 w-9 sm:h-10 sm:w-10 inline-flex items-center justify-center rounded-2xl border border-slate-200 hover:bg-slate-100 text-slate-600 font-bold text-base sm:text-lg flex-shrink-0 transition-all",
 
   // Icon button
-  iconButton: "h-7 w-7 sm:h-8 sm:w-8 lg:h-9 lg:w-9 inline-flex items-center justify-center rounded-xl border text-xs sm:text-sm lg:text-base border-white/40 bg-white/70 hover:bg-white/90 shadow-sm transition-all",
+  iconButton: "h-7 w-7 sm:h-8 sm:w-8 lg:h-9 lg:w-9 inline-flex items-center justify-center rounded-xl border text-xs sm:text-sm lg:text-base border-slate-300 bg-white text-slate-700 hover:bg-slate-50 shadow-sm transition-all",
 
   // Chips
   chipsContainer: "rounded-2xl border border-slate-200 bg-white p-3 flex flex-wrap gap-2 min-h-[48px]",
