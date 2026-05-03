@@ -1,5 +1,15 @@
 "use client";
 import { useState, useEffect } from "react";
+import {
+  Bell,
+  CalendarDays,
+  CheckCircle2,
+  ClipboardCheck,
+  Clock,
+  Home,
+  Search,
+  XCircle,
+} from "lucide-react";
 
 type Notification = {
   id: string;
@@ -92,91 +102,108 @@ export default function NotificationsPage() {
   const getStateColor = (state: string) => {
     switch (state) {
       case "pending":
-        return "bg-yellow-100 text-yellow-800";
+        return "bg-amber-100 text-amber-800";
       case "approved":
-        return "bg-green-100 text-green-800";
+        return "bg-emerald-100 text-emerald-800";
       case "rejected":
-        return "bg-red-100 text-red-800";
+        return "bg-rose-100 text-rose-800";
       default:
-        return "bg-gray-100 text-gray-800";
+        return "bg-slate-100 text-slate-800";
     }
   };
 
   const getTypeLabel = (type: string) => {
     switch (type) {
       case "remote_work":
-        return { label: "Remote Work Request", icon: "🏠", color: "bg-blue-100 text-blue-800" };
+        return {
+          label: "Remote Work Request",
+          icon: <Home className="h-3.5 w-3.5" />,
+          color: "bg-blue-100 text-blue-800",
+        };
       case "attendance_correction":
-        return { label: "Attendance Correction", icon: "📝", color: "bg-purple-100 text-purple-800" };
+        return {
+          label: "Attendance Correction",
+          icon: <ClipboardCheck className="h-3.5 w-3.5" />,
+          color: "bg-violet-100 text-violet-800",
+        };
       case "leave":
-        return { label: "Leave Request", icon: "🌿", color: "bg-green-100 text-green-800" };
+        return {
+          label: "Leave Request",
+          icon: <CalendarDays className="h-3.5 w-3.5" />,
+          color: "bg-emerald-100 text-emerald-800",
+        };
       default:
-        return { label: "Request", icon: "📋", color: "bg-gray-100 text-gray-800" };
+        return {
+          label: "Request",
+          icon: <ClipboardCheck className="h-3.5 w-3.5" />,
+          color: "bg-slate-100 text-slate-800",
+        };
     }
   };
 
   if (loading) {
     return (
-      <div className="w-full">
-        <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600"></div>
+      <div className="min-h-screen relative overflow-hidden">
+        <div className="absolute inset-0 bg-gradient-to-br from-blue-600/10 via-cyan-600/10 to-teal-600/10"></div>
+        <div className="flex items-center justify-center h-64 relative z-10">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="w-full">
-      {/* Header */}
-      <div className="mb-6">
-        <h1 className="text-xl sm:text-2xl lg:text-3xl font-semibold text-gray-900">
-          Notifications
-        </h1>
-        <p className="mt-1 sm:mt-2 text-xs sm:text-sm text-gray-600">
-          Manage all employee requests (Remote Work, Attendance Corrections, etc.)
-        </p>
-      </div>
-
-      {/* Stats Card */}
-      <div className="mb-6 bg-white rounded-xl p-4 border border-gray-200">
-        <div className="flex items-center gap-2">
-          <div className="bg-yellow-100 rounded-full p-2">
-            <svg
-              className="w-5 h-5 text-yellow-600"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"
-              />
-            </svg>
-          </div>
-          <div>
-            <p className="text-sm text-gray-600">Pending Requests</p>
-            <p className="text-2xl font-bold text-gray-900">{pendingCount}</p>
+    <div className="min-h-screen relative overflow-hidden">
+      <div className="absolute inset-0 bg-gradient-to-br from-blue-600/10 via-cyan-600/10 to-teal-600/10"></div>
+      <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiM5YzkyYWMiIGZpbGwtb3BhY2l0eT0iMC4wNSI+PHBhdGggZD0iTTM2IDM0djItaDJ2LTJoLTJ6bTAtNHYyaDJ2LTJoLTJ6bTAtNHYyaDJ2LTJoLTJ6bTAtNHYyaDJ2LTJoLTJ6Ii8+PC9nPjwvZz48L3N2Zz4=')] opacity-30"></div>
+      <div className="relative z-10 w-full px-3 sm:px-5 lg:px-8 py-4 sm:py-6">
+        {/* Header */}
+        <div className="mb-6 backdrop-blur-xl bg-white/60 rounded-3xl border border-white/40 shadow-xl p-5 sm:p-6 lg:p-8">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div>
+              <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold bg-gradient-to-r from-blue-600 via-cyan-600 to-teal-600 bg-clip-text text-transparent">
+                Notifications
+              </h1>
+              <p className="mt-2 text-sm text-slate-700 font-medium">
+                Manage all employee requests with fast approvals and clear visibility.
+              </p>
+            </div>
+            <div className="flex items-center gap-2 text-sm text-slate-600">
+              <Bell className="h-4 w-4 text-blue-600" />
+              <span className="font-semibold">Live updates enabled</span>
+            </div>
           </div>
         </div>
-      </div>
+
+      {/* Stats Card */}
+        <div className="mb-6 backdrop-blur-xl bg-white/60 rounded-3xl border border-white/40 shadow-xl p-5 sm:p-6 relative overflow-hidden">
+          <div className="absolute inset-0 bg-gradient-to-r from-blue-500/5 via-cyan-500/5 to-teal-500/5"></div>
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-amber-500 to-orange-500 text-white flex items-center justify-center shadow-lg">
+              <Clock className="h-6 w-6" />
+            </div>
+            <div>
+              <p className="text-xs uppercase tracking-wide text-slate-500 font-semibold">Pending Requests</p>
+              <p className="text-3xl font-bold text-slate-900 mt-1">{pendingCount}</p>
+            </div>
+          </div>
+        </div>
 
       {/* Filter Tabs */}
-      <div className="mb-6 flex gap-2 border-b border-gray-200">
+        <div className="mb-6 flex flex-wrap gap-2 border-b border-white/40">
         {["pending", "approved", "rejected", "all"].map((tab) => (
           <button
             key={tab}
             onClick={() => setFilter(tab as typeof filter)}
-            className={`px-4 py-2 text-sm font-medium capitalize transition-colors ${
+            className={`px-4 py-2 text-sm font-semibold capitalize rounded-t-xl transition-all ${
               filter === tab
-                ? "border-b-2 border-purple-600 text-purple-600"
-                : "text-gray-600 hover:text-gray-900"
+                ? "bg-white/70 text-blue-700 border-b-2 border-blue-600"
+                : "text-slate-600 hover:text-slate-900"
             }`}
           >
             {tab}
             {tab === "pending" && pendingCount > 0 && (
-              <span className="ml-2 bg-yellow-100 text-yellow-800 text-xs px-2 py-0.5 rounded-full">
+              <span className="ml-2 bg-amber-100 text-amber-800 text-xs px-2 py-0.5 rounded-full">
                 {pendingCount}
               </span>
             )}
@@ -185,62 +212,54 @@ export default function NotificationsPage() {
       </div>
 
       {/* Requests List */}
-      {filteredNotifications.length === 0 ? (
-        <div className="bg-white rounded-xl p-8 text-center border border-gray-200">
-          <svg
-            className="mx-auto h-12 w-12 text-gray-400"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"
-            />
-          </svg>
-          <p className="mt-2 text-sm text-gray-600">
-            No {filter !== "all" ? filter : ""} requests found
-          </p>
-        </div>
-      ) : (
-        <div className="space-y-4">
+        {filteredNotifications.length === 0 ? (
+          <div className="backdrop-blur-xl bg-white/60 rounded-3xl p-8 text-center border border-white/40 shadow-xl relative overflow-hidden">
+            <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 via-cyan-500/5 to-teal-500/5"></div>
+            <div className="mx-auto h-12 w-12 rounded-2xl bg-slate-100 text-slate-500 flex items-center justify-center">
+              <Search className="h-6 w-6" />
+            </div>
+            <p className="mt-3 text-sm text-slate-600">
+              No {filter !== "all" ? filter : ""} requests found
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-4">
           {filteredNotifications.map((notification, index) => {
             const typeInfo = getTypeLabel(notification.type);
             
             return (
               <div
                 key={`${notification.type}-${notification.id}-${index}`}
-                className="bg-white rounded-xl p-5 border border-gray-200 hover:border-purple-300 transition-colors"
+                className="backdrop-blur-xl bg-white/60 rounded-3xl p-5 border border-white/40 shadow-lg hover:shadow-xl transition-all relative overflow-hidden"
               >
+                <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 via-cyan-500/5 to-teal-500/5"></div>
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
                     {/* Type Badge */}
                     <div className="mb-3">
-                      <span className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium ${typeInfo.color}`}>
-                        <span>{typeInfo.icon}</span>
+                      <span className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold ${typeInfo.color}`}>
+                        <span className="inline-flex">{typeInfo.icon}</span>
                         {typeInfo.label}
                       </span>
                     </div>
 
                     {/* Employee Info */}
                     <div className="flex items-center gap-3 mb-3">
-                      <div className="bg-purple-100 rounded-full w-10 h-10 flex items-center justify-center">
-                        <span className="text-purple-700 font-semibold">
+                      <div className="bg-gradient-to-br from-blue-200 to-cyan-200 rounded-full w-10 h-10 flex items-center justify-center">
+                        <span className="text-blue-700 font-semibold">
                           {notification.employeeName.charAt(0).toUpperCase()}
                         </span>
                       </div>
                       <div className="flex-1">
-                        <h3 className="font-semibold text-gray-900">{notification.employeeName}</h3>
-                        <p className="text-sm text-gray-600">{notification.employeeEmail}</p>
-                        <p className="text-xs text-gray-500">{notification.department || "N/A"} · {notification.jobTitle || "N/A"}</p>
+                        <h3 className="font-semibold text-slate-900">{notification.employeeName}</h3>
+                        <p className="text-sm text-slate-600">{notification.employeeEmail}</p>
+                        <p className="text-xs text-slate-500">{notification.department || "N/A"} · {notification.jobTitle || "N/A"}</p>
                       </div>
                     </div>
 
                     {/* Message */}
                     <div className="mb-3">
-                      <p className="text-sm text-gray-800 bg-gray-50 rounded-lg p-3 leading-relaxed">
+                      <p className="text-sm text-slate-800 bg-white/70 rounded-2xl p-3 leading-relaxed border border-white/60">
                         {notification.message}
                       </p>
                     </div>
@@ -250,7 +269,8 @@ export default function NotificationsPage() {
                       <span className={`px-3 py-1 rounded-full text-xs font-medium ${getStateColor(notification.state)}`}>
                         {notification.state.toUpperCase()}
                       </span>
-                      <span className="text-xs text-gray-500">
+                      <span className="text-xs text-slate-500 inline-flex items-center gap-1">
+                        <Clock className="h-3.5 w-3.5" />
                         {new Date(notification.createdAt).toLocaleString("en-US", {
                           month: "short",
                           day: "numeric",
@@ -263,19 +283,21 @@ export default function NotificationsPage() {
 
                   {/* Action Buttons */}
                   {notification.state === "pending" && (
-                    <div className="flex gap-2 ml-4">
+                    <div className="flex flex-col sm:flex-row gap-2 ml-4">
                       <button
                         onClick={() => handleAction(notification, "approved")}
                         disabled={processingId === notification.id}
-                        className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="inline-flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-xl text-sm font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                       >
+                        <CheckCircle2 className="h-4 w-4" />
                         {processingId === notification.id ? "..." : "Approve"}
                       </button>
                       <button
                         onClick={() => handleAction(notification, "rejected")}
                         disabled={processingId === notification.id}
-                        className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="inline-flex items-center gap-2 bg-rose-600 hover:bg-rose-700 text-white px-4 py-2 rounded-xl text-sm font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                       >
+                        <XCircle className="h-4 w-4" />
                         {processingId === notification.id ? "..." : "Reject"}
                       </button>
                     </div>
@@ -284,8 +306,9 @@ export default function NotificationsPage() {
               </div>
             );
           })}
-        </div>
-      )}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

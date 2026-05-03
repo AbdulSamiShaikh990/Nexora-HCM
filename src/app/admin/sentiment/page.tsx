@@ -1,6 +1,17 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import {
+  BarChart3,
+  CalendarDays,
+  CircleDot,
+  Filter,
+  Frown,
+  RefreshCw,
+  Smile,
+  Sparkles,
+  Meh,
+} from 'lucide-react';
 
 interface SentimentResponseData {
   id: number;
@@ -122,45 +133,49 @@ export default function SentimentPage() {
 
   const getSentimentColor = (label: string) => {
     switch (label?.toLowerCase()) {
-      case 'positive': return 'text-green-600 bg-green-50 border-green-200';
-      case 'negative': return 'text-red-600 bg-red-50 border-red-200';
-      case 'neutral': return 'text-gray-600 bg-gray-50 border-gray-200';
-      default: return 'text-gray-600 bg-gray-50 border-gray-200';
+      case 'positive': return 'text-emerald-700 bg-emerald-50 border-emerald-200';
+      case 'negative': return 'text-rose-700 bg-rose-50 border-rose-200';
+      case 'neutral': return 'text-slate-700 bg-slate-50 border-slate-200';
+      default: return 'text-slate-700 bg-slate-50 border-slate-200';
     }
   };
 
   const getSentimentIcon = (label: string) => {
     switch (label?.toLowerCase()) {
-      case 'positive': return '😊';
-      case 'negative': return '😞';
-      case 'neutral': return '😐';
-      default: return '❓';
+      case 'positive': return <Smile className="h-4 w-4" />;
+      case 'negative': return <Frown className="h-4 w-4" />;
+      case 'neutral': return <Meh className="h-4 w-4" />;
+      default: return <CircleDot className="h-4 w-4" />;
     }
   };
 
   return (
-    <div className="space-y-6">
-      <div className="rounded-2xl border border-indigo-200/60 bg-gradient-to-r from-indigo-50/70 via-white/60 to-sky-50/70 backdrop-blur-xl shadow-[0_10px_30px_rgba(99,102,241,0.15)] p-6">
-        <div className="flex items-center gap-3">
-          <div className="h-12 w-12 rounded-2xl bg-gradient-to-br from-indigo-500 to-blue-600 text-white flex items-center justify-center shadow-lg">
-            📈
+    <div className="min-h-screen relative overflow-hidden">
+      <div className="absolute inset-0 bg-gradient-to-br from-blue-600/10 via-cyan-600/10 to-teal-600/10"></div>
+      <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiM5YzkyYWMiIGZpbGwtb3BhY2l0eT0iMC4wNSI+PHBhdGggZD0iTTM2IDM0djItaDJ2LTJoLTJ6bTAtNHYyaDJ2LTJoLTJ6bTAtNHYyaDJ2LTJoLTJ6bTAtNHYyaDJ2LTJoLTJ6Ii8+PC9nPjwvZz48L3N2Zz4=')] opacity-30"></div>
+      <div className="relative z-10 w-full px-3 sm:px-5 lg:px-8 py-4 sm:py-6 space-y-6">
+      <div className="backdrop-blur-xl bg-white/60 rounded-3xl border border-white/40 shadow-xl p-5 sm:p-6 lg:p-8">
+        <div className="flex items-center gap-4">
+          <div className="h-12 w-12 rounded-2xl bg-gradient-to-br from-blue-600 to-cyan-600 text-white flex items-center justify-center shadow-lg">
+            <BarChart3 className="h-6 w-6" />
           </div>
           <div>
-            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Sentiment Analysis Dashboard</h1>
-            <p className="mt-1 text-sm text-gray-700">Monitor employee feedback and sentiment trends.</p>
+            <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold bg-gradient-to-r from-blue-600 via-cyan-600 to-teal-600 bg-clip-text text-transparent">Sentiment Analysis Dashboard</h1>
+            <p className="mt-2 text-sm text-slate-700 font-medium">Monitor employee feedback and sentiment trends.</p>
           </div>
         </div>
       </div>
 
-      <div className="rounded-2xl border border-slate-200/70 bg-white/80 backdrop-blur-xl shadow-[0_10px_30px_rgba(15,23,42,0.06)] p-5">
+      <div className="rounded-3xl border border-white/40 bg-white/60 backdrop-blur-xl shadow-xl p-5 relative overflow-hidden">
+        <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 via-cyan-500/5 to-teal-500/5"></div>
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
           <div className="flex items-center gap-3">
-            <div className="h-10 w-10 rounded-2xl bg-gradient-to-br from-indigo-500 to-blue-600 text-white flex items-center justify-center shadow-md">
-              🗓️
+            <div className="h-10 w-10 rounded-2xl bg-gradient-to-br from-blue-600 to-cyan-600 text-white flex items-center justify-center shadow-md">
+              <CalendarDays className="h-5 w-5" />
             </div>
             <div>
-              <p className="text-base font-semibold text-gray-900">Schedule Sentiment Window</p>
-              <p className="text-xs text-gray-500">Employees can submit once during the scheduled window.</p>
+              <p className="text-base font-semibold text-slate-900">Schedule Sentiment Window</p>
+              <p className="text-xs text-slate-500">Employees can submit once during the scheduled window.</p>
             </div>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -170,7 +185,7 @@ export default function SentimentPage() {
                 type="datetime-local"
                 value={scheduleStart}
                 onChange={(e) => setScheduleStart(e.target.value)}
-                className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-indigo-400 focus:ring-2 focus:ring-indigo-200"
+                className="rounded-2xl border border-white/40 bg-white/80 px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-blue-400 focus:ring-2 focus:ring-blue-200"
               />
             </div>
             <div className="flex flex-col gap-1">
@@ -180,104 +195,108 @@ export default function SentimentPage() {
                 min={5}
                 value={scheduleDuration}
                 onChange={(e) => setScheduleDuration(Number(e.target.value))}
-                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-indigo-400 focus:ring-2 focus:ring-indigo-200"
+                className="w-full rounded-2xl border border-white/40 bg-white/80 px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-blue-400 focus:ring-2 focus:ring-blue-200"
               />
             </div>
             <div className="flex items-end">
               <button
                 onClick={handleScheduleSave}
                 disabled={savingSchedule}
-                className="w-full px-5 py-2.5 bg-gradient-to-r from-indigo-600 to-blue-600 text-white text-sm rounded-xl shadow hover:brightness-110 disabled:opacity-60"
+                className="w-full px-5 py-2.5 bg-gradient-to-r from-blue-600 to-cyan-600 text-white text-sm rounded-2xl shadow hover:brightness-110 disabled:opacity-60"
               >
                 {savingSchedule ? 'Saving...' : 'Schedule'}
               </button>
             </div>
           </div>
         </div>
-        <div className="mt-4 grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
-          <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
-            <span className="text-gray-500">Status</span>
+        <div className="mt-4 grid grid-cols-2 md:grid-cols-4 gap-3 text-xs relative">
+          <div className="flex items-center justify-between rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2">
+            <span className="text-slate-500">Status</span>
             <span className={`px-2 py-0.5 rounded-full text-[11px] ${scheduleStatus.active ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-600'}`}>
               {scheduleStatus.active ? 'Active' : 'Inactive'}
             </span>
           </div>
-          <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
-            <span className="text-gray-500">Remaining</span>
-            <span className="font-medium text-gray-700">{scheduleStatus.active ? `${scheduleStatus.remainingMinutes} min` : '—'}</span>
+          <div className="flex items-center justify-between rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2">
+            <span className="text-slate-500">Remaining</span>
+            <span className="font-medium text-slate-700">{scheduleStatus.active ? `${scheduleStatus.remainingMinutes} min` : '—'}</span>
           </div>
-          <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
-            <span className="text-gray-500">Start</span>
-            <span className="font-medium text-gray-700">
+          <div className="flex items-center justify-between rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2">
+            <span className="text-slate-500">Start</span>
+            <span className="font-medium text-slate-700">
               {scheduleStatus.startAt ? new Date(scheduleStatus.startAt).toLocaleString() : '—'}
             </span>
           </div>
-          <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
-            <span className="text-gray-500">Responses</span>
-            <span className="font-medium text-gray-700">{windowResponses}</span>
+          <div className="flex items-center justify-between rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2">
+            <span className="text-slate-500">Responses</span>
+            <span className="font-medium text-slate-700">{windowResponses}</span>
           </div>
         </div>
       </div>
 
       {/* Statistics Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div className="rounded-2xl border border-white/40 bg-white/70 backdrop-blur-xl shadow-[0_10px_30px_rgba(15,23,42,0.06)] p-6">
+        <div className="rounded-3xl border border-white/40 bg-white/70 backdrop-blur-xl shadow-xl p-6 relative overflow-hidden">
+          <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 via-cyan-500/5 to-teal-500/5"></div>
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-gray-600">Total Responses</p>
-              <p className="text-2xl font-bold text-gray-900">{stats.total}</p>
+              <p className="text-sm text-slate-600">Total Responses</p>
+              <p className="text-2xl font-bold text-slate-900">{stats.total}</p>
             </div>
-            <span className="text-3xl">📊</span>
+            <BarChart3 className="h-8 w-8 text-blue-600" />
           </div>
         </div>
 
-        <div className="rounded-2xl border border-emerald-200/60 bg-emerald-50/70 backdrop-blur-xl shadow-[0_10px_30px_rgba(16,185,129,0.08)] p-6">
+        <div className="rounded-3xl border border-emerald-200/60 bg-emerald-50/70 backdrop-blur-xl shadow-xl p-6">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-green-700">Positive</p>
-              <p className="text-2xl font-bold text-green-900">{stats.positive}</p>
-              <p className="text-xs text-green-600">
+              <p className="text-sm text-emerald-700">Positive</p>
+              <p className="text-2xl font-bold text-emerald-900">{stats.positive}</p>
+              <p className="text-xs text-emerald-600">
                 {stats.total > 0 ? ((stats.positive / stats.total) * 100).toFixed(1) : 0}%
               </p>
             </div>
-            <span className="text-3xl">😊</span>
+            <Smile className="h-8 w-8 text-emerald-600" />
           </div>
         </div>
 
-        <div className="rounded-2xl border border-rose-200/60 bg-rose-50/70 backdrop-blur-xl shadow-[0_10px_30px_rgba(244,63,94,0.08)] p-6">
+        <div className="rounded-3xl border border-rose-200/60 bg-rose-50/70 backdrop-blur-xl shadow-xl p-6">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-red-700">Negative</p>
-              <p className="text-2xl font-bold text-red-900">{stats.negative}</p>
-              <p className="text-xs text-red-600">
+              <p className="text-sm text-rose-700">Negative</p>
+              <p className="text-2xl font-bold text-rose-900">{stats.negative}</p>
+              <p className="text-xs text-rose-600">
                 {stats.total > 0 ? ((stats.negative / stats.total) * 100).toFixed(1) : 0}%
               </p>
             </div>
-            <span className="text-3xl">😞</span>
+            <Frown className="h-8 w-8 text-rose-600" />
           </div>
         </div>
 
-        <div className="rounded-2xl border border-slate-200/60 bg-slate-50/70 backdrop-blur-xl shadow-[0_10px_30px_rgba(100,116,139,0.08)] p-6">
+        <div className="rounded-3xl border border-slate-200/60 bg-slate-50/70 backdrop-blur-xl shadow-xl p-6">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-gray-700">Neutral</p>
-              <p className="text-2xl font-bold text-gray-900">{stats.neutral}</p>
-              <p className="text-xs text-gray-600">
+              <p className="text-sm text-slate-700">Neutral</p>
+              <p className="text-2xl font-bold text-slate-900">{stats.neutral}</p>
+              <p className="text-xs text-slate-600">
                 {stats.total > 0 ? ((stats.neutral / stats.total) * 100).toFixed(1) : 0}%
               </p>
             </div>
-            <span className="text-3xl">😐</span>
+            <Meh className="h-8 w-8 text-slate-500" />
           </div>
         </div>
       </div>
 
       {/* Filters */}
-      <div className="rounded-2xl border border-white/40 bg-white/70 backdrop-blur-xl shadow-[0_10px_30px_rgba(15,23,42,0.06)] p-4">
-        <div className="flex items-center space-x-4">
-          <label className="text-sm font-medium text-gray-700">Filter by Sentiment:</label>
+      <div className="rounded-3xl border border-white/40 bg-white/70 backdrop-blur-xl shadow-xl p-4">
+        <div className="flex flex-wrap items-center gap-4">
+          <label className="text-sm font-semibold text-slate-700 inline-flex items-center gap-2">
+            <Filter className="h-4 w-4 text-blue-600" />
+            Filter by Sentiment:
+          </label>
           <select
             value={filterSentiment}
             onChange={(e) => setFilterSentiment(e.target.value)}
-            className="rounded-xl border border-slate-200 bg-white/80 px-3 py-2 text-sm text-slate-900 focus:border-indigo-400 focus:ring-2 focus:ring-indigo-200"
+            className="rounded-2xl border border-white/40 bg-white/80 px-3 py-2 text-sm text-slate-900 focus:border-blue-400 focus:ring-2 focus:ring-blue-200"
           >
             <option value="all">All</option>
             <option value="positive">Positive</option>
@@ -287,8 +306,9 @@ export default function SentimentPage() {
           
           <button
             onClick={fetchSentimentResults}
-            className="ml-auto px-4 py-2 bg-gradient-to-r from-indigo-600 to-blue-600 text-white text-sm rounded-xl shadow hover:brightness-110"
+            className="ml-auto inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-600 to-cyan-600 text-white text-sm rounded-2xl shadow hover:brightness-110"
           >
+            <RefreshCw className="h-4 w-4" />
             Refresh
           </button>
         </div>
@@ -296,41 +316,45 @@ export default function SentimentPage() {
 
       {/* Error Display */}
       {error && (
-        <div className="bg-red-50 border border-red-200 rounded-md p-4">
-          <div className="text-red-800 text-sm">{error}</div>
+        <div className="rounded-2xl border border-rose-200 bg-rose-50 p-4">
+          <div className="text-rose-800 text-sm">{error}</div>
         </div>
       )}
 
       {/* Loading State */}
       {isLoading ? (
-        <div className="bg-white rounded-lg shadow p-8 text-center">
+        <div className="backdrop-blur-xl bg-white/70 rounded-3xl shadow-xl p-8 text-center border border-white/40">
           <div className="animate-spin mx-auto h-12 w-12 border-4 border-blue-600 border-t-transparent rounded-full"></div>
-          <p className="mt-4 text-gray-600">Loading sentiment data...</p>
+          <p className="mt-4 text-slate-600">Loading sentiment data...</p>
         </div>
       ) : (
         /* Responses List */
-        <div className="bg-white rounded-lg shadow">
-          <div className="px-6 py-4 border-b border-gray-200">
-            <h2 className="text-lg font-semibold text-gray-900">
+        <div className="backdrop-blur-xl bg-white/70 rounded-3xl shadow-xl border border-white/40">
+          <div className="px-6 py-4 border-b border-white/40 flex items-center justify-between">
+            <h2 className="text-lg font-semibold text-slate-900">
               Employee Feedback ({responses.length})
             </h2>
+            <span className="text-xs text-slate-500 inline-flex items-center gap-2">
+              <Sparkles className="h-3.5 w-3.5 text-blue-600" />
+              Live sentiment feed
+            </span>
           </div>
           
-          <div className="divide-y divide-gray-200">
+          <div className="divide-y divide-white/40">
             {responses.length === 0 ? (
-              <div className="px-6 py-8 text-center text-gray-500">
+              <div className="px-6 py-8 text-center text-slate-500">
                 <p>No sentiment responses found.</p>
               </div>
             ) : (
               responses.map((response) => (
-                <div key={response.id} className="px-6 py-4 hover:bg-gray-50">
+                <div key={response.id} className="px-6 py-4 hover:bg-white/70">
                   <div className="flex items-start justify-between mb-2">
                     <div className="flex items-center space-x-3">
                       <div>
-                        <p className="text-sm font-medium text-gray-900">
+                        <p className="text-sm font-medium text-slate-900">
                           {response.employeeName}
                         </p>
-                        <p className="text-xs text-gray-500">{response.employeeEmail}</p>
+                        <p className="text-xs text-slate-500">{response.employeeEmail}</p>
                       </div>
                     </div>
                     <div className="flex items-center space-x-3">
@@ -338,7 +362,7 @@ export default function SentimentPage() {
                         {getSentimentIcon(response.sentimentLabel)}
                         <span className="ml-1 capitalize">{response.sentimentLabel}</span>
                       </span>
-                      <span className="text-xs text-gray-500">
+                      <span className="text-xs text-slate-500">
                         {new Date(response.createdAt).toLocaleDateString('en-US', {
                           year: 'numeric',
                           month: 'short',
@@ -350,14 +374,14 @@ export default function SentimentPage() {
                     </div>
                   </div>
                   
-                  <p className="text-sm text-gray-700 mb-2">{response.text}</p>
+                  <p className="text-sm text-slate-700 mb-2">{response.text}</p>
                   
                   <div className="flex items-center">
-                    <span className="text-xs text-gray-500">
+                    <span className="text-xs text-slate-500">
                       Confidence: {(response.confidenceScore * 100).toFixed(1)}%
                     </span>
                     <div className="ml-3 flex-1 max-w-xs">
-                      <div className="w-full bg-gray-200 rounded-full h-1.5">
+                      <div className="w-full bg-slate-200 rounded-full h-1.5">
                         <div 
                           className="bg-blue-600 h-1.5 rounded-full" 
                           style={{ width: `${response.confidenceScore * 100}%` }}
@@ -371,6 +395,7 @@ export default function SentimentPage() {
           </div>
         </div>
       )}
+      </div>
     </div>
   );
 }

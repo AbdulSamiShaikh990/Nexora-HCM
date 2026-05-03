@@ -208,11 +208,30 @@ export async function POST(req: Request) {
     // Extract predictions array from Flask response
     const predictionsList = predictions.predictions || [];
 
+    // Build a quick lookup for performance rating by employee_id
+    const performanceByEmployeeId = new Map(
+      employeeData.map((emp) => [emp.employee_id, emp.performanceRating])
+    );
+
+    // Override risk if performance rating is very low (<= 2)
+    const adjustedPredictions = predictionsList.map((p: any) => {
+      const perfRating = performanceByEmployeeId.get(p.employee_id);
+      if (perfRating !== undefined && perfRating <= 2) {
+        return {
+          ...p,
+          risk_category: 'High-risk',
+          risk_percentage: Math.max(p.risk_percentage || 0, 80),
+          risk_score: Math.max(p.risk_score || 0, 0.8)
+        };
+      }
+      return p;
+    });
+
     // Step 4: Response return karo with predictions array
     return NextResponse.json({
       success: true,
       totalEmployees: employees.length,
-      predictions: predictionsList
+      predictions: adjustedPredictions
     });
 
   } catch (error: any) {
