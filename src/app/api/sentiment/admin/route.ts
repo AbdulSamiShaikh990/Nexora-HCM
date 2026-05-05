@@ -51,7 +51,8 @@ export async function GET(request: NextRequest) {
       where: { email: session.user.email }
     });
 
-    if (!user || user.role !== 'ADMIN') {
+    const role = (user?.role || '').toString();
+    if (!user || role.toLowerCase() !== 'admin') {
       return NextResponse.json(
         { error: 'Forbidden - Admin access required' },
         { status: 403 }
@@ -154,7 +155,8 @@ export async function PUT(request: NextRequest) {
       where: { email: session.user.email }
     });
 
-    if (!user || user.role !== 'ADMIN') {
+    const role = (user?.role || '').toString();
+    if (!user || role.toLowerCase() !== 'admin') {
       return NextResponse.json(
         { error: 'Forbidden - Admin access required' },
         { status: 403 }

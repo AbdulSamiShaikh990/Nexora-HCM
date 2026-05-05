@@ -34,20 +34,25 @@ const TYPES = [
 ] as const;
 
 export default function Page() {
+  const defaultMonth = () => {
+    const d = new Date();
+    return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}`;
+  };
+
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
   const [status, setStatus] = useState<(typeof STATUSES)[number]>("all");
   const [type, setType] = useState<(typeof TYPES)[number]>("all");
   const [q, setQ] = useState("");
   const [month, setMonth] = useState<string>(() => {
-    const d = new Date();
-    return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}`;
+    return defaultMonth();
   });
   const [department, setDepartment] = useState("all");
   const [data, setData] = useState<LeaveRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
+  const [searchToken, setSearchToken] = useState(0);
   const [rejectModal, setRejectModal] = useState<{ id: number | null; reason: string }>({ id: null, reason: "" });
   const [approveModal, setApproveModal] = useState<{ id: number | null; reason: string; paid: boolean }>({ id: null, reason: "", paid: false });
   const [stats, setStats] = useState<{ totalThisMonth: number; pendingThisMonth: number; avgPerEmployee: number } | null>(null);
@@ -79,26 +84,19 @@ export default function Page() {
     fetchDepartments();
   }, []);
 
-  const query = useMemo(() => {
-    const params = new URLSearchParams();
-    if (from) params.set("from", from);
-    if (to) params.set("to", to);
-    if (status && status !== "all") params.set("status", status);
-    if (type && type !== "all") params.set("type", type);
-    if (q) params.set("q", q);
-    if (month) params.set("month", month);
-    if (department && department !== "all") params.set("department", department);
-    params.set("page", String(page));
-    params.set("size", "10");
-    return params.toString();
-  }, [from, to, status, type, q, department, page, month]);
-
   async function load() {
     setLoading(true);
     try {
       const params = new URLSearchParams();
+
+      if (from) params.set("from", from);
+      if (to) params.set("to", to);
+      if (month) params.set("month", month);
       if (status && status !== "all") params.set("status", status);
+      if (type && type !== "all") params.set("type", type);
+      if (q) params.set("q", q);
       if (department && department !== "all") params.set("department", department);
+
       params.set("page", String(page));
       params.set("limit", "10");
 
@@ -149,7 +147,7 @@ export default function Page() {
   useEffect(() => {
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page, status, department]);
+  }, [page, status, department, searchToken]);
 
   async function updateStatus(id: number, next: "Approved" | "Rejected") {
     if (next === "Rejected") {
@@ -231,6 +229,13 @@ export default function Page() {
     setQ("");
     setDepartment("all");
     setPage(1);
+    setMonth(defaultMonth());
+    setSearchToken((t) => t + 1);
+  }
+
+  function applyFilters() {
+    setPage(1);
+    setSearchToken((t) => t + 1);
   }
 
   return (
@@ -295,8 +300,8 @@ export default function Page() {
 
       {/* Glass filter panel */}
       <div className="mt-4 rounded-3xl border border-white/40 bg-white/60 backdrop-blur-xl shadow-lg p-3 sm:p-4 md:p-6 relative overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 via-cyan-500/5 to-teal-500/5"></div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+        <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-blue-500/5 via-cyan-500/5 to-teal-500/5"></div>
+        <div className="relative z-10 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
           <div>
             <label className="block text-xs font-semibold text-slate-600 mb-1">From Date</label>
             <input type="date" value={from} onChange={(e) => setFrom(e.target.value)}
@@ -347,12 +352,12 @@ export default function Page() {
           </div>
         </div>
 
-        <div className="mt-4 flex items-center justify-end gap-2 relative">
+        <div className="relative z-10 mt-4 flex items-center justify-end gap-2">
           <button onClick={resetFilters}
             className="rounded-2xl border border-slate-200 bg-white/70 px-4 py-2 text-sm text-slate-700 hover:bg-white">
             Reset
           </button>
-          <button onClick={() => { setPage(1); load(); }}
+          <button onClick={applyFilters}
             className="rounded-2xl bg-gradient-to-r from-blue-600 to-cyan-600 px-5 py-2 text-sm font-semibold text-white shadow-lg hover:brightness-110 active:scale-[.98]">
             Search
           </button>

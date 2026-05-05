@@ -167,8 +167,8 @@ export default function SentimentPage() {
       </div>
 
       <div className="rounded-3xl border border-white/40 bg-white/60 backdrop-blur-xl shadow-xl p-5 relative overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 via-cyan-500/5 to-teal-500/5"></div>
-        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+        <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-blue-500/5 via-cyan-500/5 to-teal-500/5"></div>
+        <div className="relative z-10 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
           <div className="flex items-center gap-3">
             <div className="h-10 w-10 rounded-2xl bg-gradient-to-br from-blue-600 to-cyan-600 text-white flex items-center justify-center shadow-md">
               <CalendarDays className="h-5 w-5" />
@@ -209,7 +209,7 @@ export default function SentimentPage() {
             </div>
           </div>
         </div>
-        <div className="mt-4 grid grid-cols-2 md:grid-cols-4 gap-3 text-xs relative">
+        <div className="relative z-10 mt-4 grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
           <div className="flex items-center justify-between rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2">
             <span className="text-slate-500">Status</span>
             <span className={`px-2 py-0.5 rounded-full text-[11px] ${scheduleStatus.active ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-600'}`}>

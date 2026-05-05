@@ -7,7 +7,8 @@ export async function GET(req: Request) {
   try {
     // Check if user is admin
     const session = await getServerSession(authOptions);
-    if (session?.user?.role !== "admin") {
+    const role = (session?.user?.role || (session as any)?.user?.role || "").toString();
+    if (role.toLowerCase() !== "admin") {
       return NextResponse.json(
         { error: "Unauthorized - admin access required" },
         { status: 403 }
@@ -15,7 +16,12 @@ export async function GET(req: Request) {
     }
 
     const { searchParams } = new URL(req.url);
+    const from = searchParams.get("from");
+    const to = searchParams.get("to");
+    const month = searchParams.get("month");
     const status = searchParams.get("status");
+    const type = searchParams.get("type");
+    const q = searchParams.get("q");
     const department = searchParams.get("department");
     const page = parseInt(searchParams.get("page") || "1");
     const limit = parseInt(searchParams.get("limit") || "20");
@@ -24,8 +30,64 @@ export async function GET(req: Request) {
     if (status && status !== "all") {
       where.status = status;
     }
+
+    if (type && type !== "all") {
+      where.type = type;
+    }
+
+    // Employee filters (department + search query)
+    const employeeWhere: any = {};
     if (department && department !== "all") {
-      where.employee = { department };
+      employeeWhere.department = department;
+    }
+    if (q && q.trim()) {
+      const qq = q.trim();
+      employeeWhere.OR = [
+        { firstName: { contains: qq, mode: "insensitive" } },
+        { lastName: { contains: qq, mode: "insensitive" } },
+        { email: { contains: qq, mode: "insensitive" } },
+      ];
+    }
+    if (Object.keys(employeeWhere).length > 0) {
+      where.employee = employeeWhere;
+    }
+
+    // Date filters (overlap semantics)
+    const and: any[] = [];
+
+    const parseISODate = (v: string) => {
+      // input type=date gives YYYY-MM-DD; treat as UTC date boundary
+      const d = new Date(`${v}T00:00:00.000Z`);
+      return Number.isNaN(d.getTime()) ? null : d;
+    };
+
+    const fromDate = from ? parseISODate(from) : null;
+    const toDate = to ? parseISODate(to) : null;
+
+    if (fromDate) {
+      and.push({ endDate: { gte: fromDate } });
+    }
+    if (toDate) {
+      // inclusive end-of-day for 'to'
+      const toEnd = new Date(toDate);
+      toEnd.setUTCHours(23, 59, 59, 999);
+      and.push({ startDate: { lte: toEnd } });
+    }
+
+    if (month) {
+      // month = YYYY-MM
+      const m = /^\d{4}-\d{2}$/.test(month) ? month : null;
+      if (m) {
+        const [y, mm] = m.split("-").map(Number);
+        const start = new Date(Date.UTC(y, mm - 1, 1, 0, 0, 0, 0));
+        const end = new Date(Date.UTC(y, mm, 0, 23, 59, 59, 999));
+        and.push({ startDate: { lte: end } });
+        and.push({ endDate: { gte: start } });
+      }
+    }
+
+    if (and.length > 0) {
+      where.AND = and;
     }
 
     const skip = (page - 1) * limit;
@@ -156,7 +218,8 @@ export async function PUT(req: Request) {
   try {
     // Check if user is admin
     const session = await getServerSession(authOptions);
-    if (session?.user?.role !== "admin") {
+    const role = (session?.user?.role || (session as any)?.user?.role || "").toString();
+    if (role.toLowerCase() !== "admin") {
       return NextResponse.json(
         { error: "Unauthorized - admin access required" },
         { status: 403 }

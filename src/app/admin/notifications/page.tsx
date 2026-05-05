@@ -177,8 +177,8 @@ export default function NotificationsPage() {
 
       {/* Stats Card */}
         <div className="mb-6 backdrop-blur-xl bg-white/60 rounded-3xl border border-white/40 shadow-xl p-5 sm:p-6 relative overflow-hidden">
-          <div className="absolute inset-0 bg-gradient-to-r from-blue-500/5 via-cyan-500/5 to-teal-500/5"></div>
-          <div className="flex items-center gap-4">
+          <div className="pointer-events-none absolute inset-0 bg-gradient-to-r from-blue-500/5 via-cyan-500/5 to-teal-500/5"></div>
+          <div className="relative z-10 flex items-center gap-4">
             <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-amber-500 to-orange-500 text-white flex items-center justify-center shadow-lg">
               <Clock className="h-6 w-6" />
             </div>
@@ -214,11 +214,11 @@ export default function NotificationsPage() {
       {/* Requests List */}
         {filteredNotifications.length === 0 ? (
           <div className="backdrop-blur-xl bg-white/60 rounded-3xl p-8 text-center border border-white/40 shadow-xl relative overflow-hidden">
-            <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 via-cyan-500/5 to-teal-500/5"></div>
-            <div className="mx-auto h-12 w-12 rounded-2xl bg-slate-100 text-slate-500 flex items-center justify-center">
+            <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-blue-500/5 via-cyan-500/5 to-teal-500/5"></div>
+            <div className="relative z-10 mx-auto h-12 w-12 rounded-2xl bg-slate-100 text-slate-500 flex items-center justify-center">
               <Search className="h-6 w-6" />
             </div>
-            <p className="mt-3 text-sm text-slate-600">
+            <p className="relative z-10 mt-3 text-sm text-slate-600">
               No {filter !== "all" ? filter : ""} requests found
             </p>
           </div>
@@ -232,8 +232,8 @@ export default function NotificationsPage() {
                 key={`${notification.type}-${notification.id}-${index}`}
                 className="backdrop-blur-xl bg-white/60 rounded-3xl p-5 border border-white/40 shadow-lg hover:shadow-xl transition-all relative overflow-hidden"
               >
-                <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 via-cyan-500/5 to-teal-500/5"></div>
-                <div className="flex items-start justify-between">
+                <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-blue-500/5 via-cyan-500/5 to-teal-500/5"></div>
+                <div className="relative z-10 flex items-start justify-between">
                   <div className="flex-1">
                     {/* Type Badge */}
                     <div className="mb-3">
