@@ -213,18 +213,60 @@ export async function POST(req: Request) {
       employeeData.map((emp) => [emp.employee_id, emp.performanceRating])
     );
 
-    // Override risk if performance rating is very low (<= 2)
+    const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value));
+    const toPercent = (riskPercentage: unknown, riskScore: unknown) => {
+      const pct = Number(riskPercentage);
+      if (Number.isFinite(pct) && pct > 0) return pct;
+      const score = Number(riskScore);
+      if (Number.isFinite(score) && score > 0) return score * 100;
+      return 50;
+    };
+
+    // Performance-based normalization:
+    // - <= 2   => High-risk (dynamic, not fixed 80)
+    // - >2-3.2 => Medium-risk
+    // - >3.2   => Low-risk
     const adjustedPredictions = predictionsList.map((p: any) => {
       const perfRating = performanceByEmployeeId.get(p.employee_id);
-      if (perfRating !== undefined && perfRating <= 2) {
+      const basePercent = toPercent(p.risk_percentage, p.risk_score);
+
+      if (perfRating === undefined) {
+        const normalized = clamp(basePercent, 1, 99);
+        return {
+          ...p,
+          risk_percentage: Math.round(normalized),
+          risk_score: Number((normalized / 100).toFixed(2))
+        };
+      }
+
+      if (perfRating <= 2) {
+        const highFloor = 70 + Math.round((2 - perfRating) * 10); // rating 2 => 70, rating 1 => 80
+        const normalized = clamp(Math.max(basePercent, highFloor), highFloor, 95);
         return {
           ...p,
           risk_category: 'High-risk',
-          risk_percentage: Math.max(p.risk_percentage || 0, 80),
-          risk_score: Math.max(p.risk_score || 0, 0.8)
+          risk_percentage: Math.round(normalized),
+          risk_score: Number((normalized / 100).toFixed(2))
         };
       }
-      return p;
+
+      if (perfRating <= 3.2) {
+        const normalized = clamp(basePercent, 45, 74);
+        return {
+          ...p,
+          risk_category: 'Medium-risk',
+          risk_percentage: Math.round(normalized),
+          risk_score: Number((normalized / 100).toFixed(2))
+        };
+      }
+
+      const normalized = clamp(basePercent, 15, 59);
+      return {
+        ...p,
+        risk_category: 'Low-risk',
+        risk_percentage: Math.round(normalized),
+        risk_score: Number((normalized / 100).toFixed(2))
+      };
     });
 
     // Step 4: Response return karo with predictions array
